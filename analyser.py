@@ -3,6 +3,7 @@ from functools import reduce
 from json import loads
 from sort_click_data_files import get_sorted_files
 from diagram_holoviews import draw_diagram
+from collections_helpers import merge_counts_dictionaries
 
 
 def analyse_logfile(path, event_names=None, analyser_function=None):
@@ -312,44 +313,24 @@ def position_distribution(document_events_stat, document_events):
         segments = position_description.split("-")
         if len(segments) == 3:
             i = int(segments[1])
-            if i <= 10:
-                position_key = segments[0] + "-" + segments[1]
-            elif i <= 20:
-                position_key = segments[0] + "-(11-20)"
-            elif i <= 100:
-                position_key = segments[0] + "-(21-100)"
+            if i < 11:
+                # position_key = segments[0] + "-" + segments[1]
+                position_key = str(segments[1])
+            elif i < 21:
+                # position_key = segments[0] + "-(11-20)"
+                position_key = "(11-20)"
+            elif i < 101:
+                # position_key = segments[0] + "-(21-100)"
+                position_key = "(21-100)"
             else:
-                position_key = segments[0] + "-(101-...)"
+                # position_key = segments[0] + "-(101-...)"
+                position_key = "(101-...)"
 
             if position_key in document_events_stat:
                 document_events_stat[position_key] += 1
             else:
                 document_events_stat[position_key] = 1
     return document_events_stat
-
-
-def merge_counts_dictionaries(counts, document_events_count, document_events_stat):
-    """
-    Merges dictionaries for opened links counts.
-
-    Args:
-        counts (dict): The dictionary to store opened links counts.
-        document_events_count (int): The count of opened documents.
-        document_events_stat (dict): The dictionary containing the position distribution.
-
-    Returns:
-        dict: A dictionary containing the merged counts.
-    """
-    if document_events_count in counts:
-        for key, value in document_events_stat.items():
-            if key in counts[document_events_count]:
-                counts[document_events_count][key] += value
-            else:
-                counts[document_events_count][key] = value
-    else:
-        counts[document_events_count] = document_events_stat
-
-    return counts
 
 
 def collect_opened_documents_positions_distribution_in_searches(counts, session_description):
@@ -456,7 +437,7 @@ if __name__ == "__main__":
 
     dump_sammary(outputFile)
 
-    draw_diagram(search_counts, opened_links, opened_links_cumulative, None)
+    draw_diagram(search_counts, opened_links, opened_links_cumulative, opened_links_distribution)
 
 
 
