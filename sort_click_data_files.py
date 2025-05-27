@@ -1,6 +1,6 @@
 import os
 
-def files_sorter():
+def test_sorter():
     files = ["zip.ls.s3.0038591f-f3e0-491a-9268-d4fd70a33247.2025-05-01T12.55.part52.txt",
              "zip.ls.s3.0080de27-e976-4d32-9962-1c84dc7ae24d.2025-05-01T12.51.part14.txt",
              "zip.ls.s3.0096e8e4-48e6-411a-adec-0038157b2889.2025-05-01T12.26.part78.txt",
@@ -50,5 +50,4 @@ def get_sorted_files(root_path):
 
 
 if __name__ == "__main__":
-    #files_sorter()
-    files = get_sorted_files(r'c:\Data\ClickData')
+    files = get_sorted_files(r'c:\Data\ClickData')  # just for test

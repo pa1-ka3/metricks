@@ -312,6 +312,9 @@ def position_distribution(document_events_stat, document_events):
     for position_description in document_events:
         segments = position_description.split("-")
         if len(segments) == 3:
+            if not (isinstance(segments[1], str) and segments[1].isdigit()):
+                print(f"Invalid position description: {position_description}")
+                continue
             i = int(segments[1])
             if i < 11:
                 # position_key = segments[0] + "-" + segments[1]
