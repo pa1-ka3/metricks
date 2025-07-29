@@ -29,11 +29,11 @@ click-data/
 ├── click-analyzer/
 │   ├── analyzer.py
 │   └── ...
-└── venv/
-    ├── etc/
-    ├── Lib/
-    ├── Scripts/
-    └── ...
+├── venv/
+│   ├── etc/
+│   ├── Lib/
+│   ├── Scripts/
+... └── ...
 Update parameters in run_analyzer.bat and place it into click-data
 
 

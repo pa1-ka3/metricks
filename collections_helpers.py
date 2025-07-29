@@ -22,6 +22,55 @@ def merge_counts_dictionaries(counts, document_events_count, document_events_sta
     return counts
 
 
+def add_dictionaries(counts, additional_dictionary):
+    """
+    Adds values from an additional dictionary to the counts dictionary.
+
+    Args:
+        counts (dict): The dictionary to store counts.
+        additional_dictionary (dict): The dictionary with additional counts.
+
+    Returns:
+        dict: The updated counts dictionary.
+    """
+    for key, value in additional_dictionary.items():
+        if key in counts:
+            if isinstance(value, dict):
+                counts[key] = merge_counts_dictionaries(counts[key], key, value)
+            elif isinstance(value, list):
+                counts[key] = counts.get(key, []) + value
+            elif isinstance(value, int):
+                counts[key] = counts.get(key, 0) + value
+        else:
+            counts[key] = value
+
+    return counts
+
+def add_simple_dictionaries(counts, additional_dictionary):
+    """
+    Adds values from an additional dictionary to the counts dictionary.
+
+    Args:
+        counts (dict): The dictionary to store counts.
+        additional_dictionary (dict): The dictionary with additional counts.
+
+    Returns:
+        dict: The updated counts dictionary.
+    """
+    for key, value in additional_dictionary.items():
+        if key in counts:
+            if isinstance(value, dict):
+                counts[key] = merge_counts_dictionaries(counts[key], key, value)
+            elif isinstance(value, list):
+                counts[key] = counts.get(key, []) + value
+            elif isinstance(value, int):
+                counts[key] = counts.get(key, 0) + value
+        else:
+            counts[key] = value
+
+    return counts
+
+
 def condense_dictionary(dictionary):
     """
     Condenses a dictionary by grouping keys (11..20) (21..100) (101..).

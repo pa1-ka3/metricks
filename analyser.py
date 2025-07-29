@@ -3,7 +3,7 @@ from functools import reduce
 from json import loads
 from sort_click_data_files import get_sorted_files
 from diagram_holoviews import draw_diagram
-from collections_helpers import merge_counts_dictionaries
+from collections_helpers import merge_counts_dictionaries, add_simple_dictionaries
 
 
 def analyse_logfile(path, event_names=None, analyser_function=None):
@@ -116,6 +116,10 @@ def get_document_actions(acc, event_description):
     return acc
 
 
+test_subaccounts = ['9988776', '9999997', '9999998', '2323232', '2800000', '0707070', '1111111', '2222123',
+                    '2222222', '3333333', '4444444']
+
+
 def get_document_actions_grouped_by_queryid(acc, event_description):
     """
     Analyzes the event description and group extracts information
@@ -132,6 +136,17 @@ def get_document_actions_grouped_by_queryid(acc, event_description):
     if "payload" not in event_description:
         return acc
     payload = event_description["payload"]
+
+    if "istestaccount" in payload and payload["istestaccount"]:
+        return acc
+
+    if "subaccountid" in payload:
+        subaccount_id = payload["subaccountid"]
+        if subaccount_id is None:
+            return acc
+        if subaccount_id.startswith(tuple(test_subaccounts)):
+            return acc
+
     if "sessionid" not in payload:
         return acc
     session_id = payload["sessionid"]
@@ -178,10 +193,10 @@ def get_document_actions_grouped_by_queryid(acc, event_description):
 
 def save_events_file(events, outputFile):
     # Print the event chains
-    with open(outputFile, "w") as outfile:
+    with open(outputFile, "w", encoding='UTF-8') as outfile:
         for session, values in events.items():
             if isinstance(values, dict):
-                sub_lines = ["{0} : {1}".format(queryid, events) for queryid, events in values.items()]
+                sub_lines = ["{0} : {1}".format(queryid, event_descr) for queryid, event_descr in values.items()]
                 whole_value = ',\n              '.join(sub_lines)
             else:
                 # This is a list of events
@@ -247,8 +262,8 @@ def collect_opened_links_in_searches(counts, session_description):
             document_events = set()  # analyze for every search
             for event in events:
                 if "documentvieweropened" in event \
-                        or "documentviewed" in event:
-                        #or "downloadpdf" in event:
+                        or "documentviewed" in event \
+                        or "downloadpdf" in event:
                     name = event.replace("documentvieweropened", "").\
                         replace("documentviewed", "").\
                         replace("downloadpdf", "")
@@ -278,15 +293,19 @@ def collect_opened_links_by_searchnumbers_in_searches(counts, session_descriptio
 
         for queryid, events in session_events.items():
             document_events = set()
+            pdfdownload_count = 0
             for event in events:
+
                 if "documentvieweropened" in event \
                         or "documentviewed" in event:
-                        # or "downloadpdf" in event:
                     name = event.replace("documentvieweropened", "").\
                         replace("documentviewed", "").\
                         replace("downloadpdf", "")
-                    document_events.add(name)
-            document_events_count = len(document_events)
+                    if len(name) > 0:
+                        document_events.add(name)
+                if "downloadpdf" in event:  # calculate all downloadpdf events in the session
+                    pdfdownload_count += 1
+            document_events_count = len(document_events) #+ pdfdownload_count
             if searches_count in counts:
                 if document_events_count in counts[searches_count]:
                     counts[searches_count][document_events_count] += 1
@@ -310,9 +329,13 @@ def position_distribution(document_events_stat, document_events):
         dict: A dictionary containing the position distribution.
     """
     for position_description in document_events:
+        position_key = "0"  # default position key means nothing was opened/viewed/downloaded
         segments = position_description.split("-")
         if len(segments) == 3:
-            if not (isinstance(segments[1], str) and segments[1].isdigit()):
+            if not isinstance(segments[1], str):
+                print(f"Invalid position description: {position_description}")
+                continue
+            if not segments[1].isdigit():
                 print(f"Invalid position description: {position_description}")
                 continue
             i = int(segments[1])
@@ -329,10 +352,10 @@ def position_distribution(document_events_stat, document_events):
                 # position_key = segments[0] + "-(101-...)"
                 position_key = "(101-...)"
 
-            if position_key in document_events_stat:
-                document_events_stat[position_key] += 1
-            else:
-                document_events_stat[position_key] = 1
+        if position_key in document_events_stat:
+            document_events_stat[position_key] += 1
+        else:
+            document_events_stat[position_key] = 1
     return document_events_stat
 
 
@@ -354,18 +377,19 @@ def collect_opened_documents_positions_distribution_in_searches(counts, session_
             document_events = set()
             document_events_stat = {}
             for event in events:
+                name = event
                 if "documentvieweropened" in event \
                         or "documentviewed" in event:
                     name = event.replace("documentvieweropened", "").\
                         replace("documentviewed", "")
-                    document_events.add(name)
+                document_events.add(name)
                 if "downloadpdf" in event:  # calculate all downloadpdf events in the session
                     if "downloadpdf" not in document_events_stat:
                         document_events_stat["downloadpdf"] = 1
                     else:
                         document_events_stat["downloadpdf"] += 1
             document_events_stat = position_distribution(document_events_stat, document_events)
-            document_events_count = len(document_events)
+            document_events_count = len(session_events.items())
             counts = merge_counts_dictionaries(counts, document_events_count, document_events_stat)
     return counts
 
@@ -376,8 +400,9 @@ def dump_sammary(outputFile):
         separator = '-' * 80
         outfile.write(separator + "\n")
         print(separator)
-        print('Search counts in sessions')
-        outfile.write("Search counts in sessions:\n")
+        summary_header1 = "Search counts in sessions:\n"
+        print(summary_header1)
+        outfile.write(summary_header1)
         for count in sorted(search_counts.keys()):
             out_line = f"Searches in session: {count}, Count: {search_counts[count]}"
             print(out_line)
@@ -385,8 +410,9 @@ def dump_sammary(outputFile):
 
         outfile.write(separator + "\n")
         print(separator)
-        print('Collect opened links in searches')
-        outfile.write("Opened links in searches:\n")
+        summary_header2 = "Opened links in searches:\n"
+        print(summary_header2)
+        outfile.write(summary_header2)
         for count in sorted(opened_links_cumulative.keys()):
             out_line = f"Opened documents in one search: {count},  Count: {opened_links_cumulative[count]}"
             print(out_line)
@@ -394,7 +420,9 @@ def dump_sammary(outputFile):
 
         outfile.write(separator + "\n")
         print(separator)
-        outfile.write("Opened links by search numbers in searches:\n")
+        summary_header3 = "Opened links by search numbers in session:\n"
+        print(summary_header3)
+        outfile.write(summary_header3)
         for count in sorted(opened_links.keys()):
             out_line = f"Searches: {count}, Value: {opened_links[count]}"
             print(out_line)
@@ -402,11 +430,45 @@ def dump_sammary(outputFile):
 
         outfile.write(separator + "\n")
         print(separator)
-        outfile.write("Opened links distribution in searches:\n")
+        summary_header4 = "Opened links distribution in searches:\n"
+        print(summary_header4)
+        outfile.write(summary_header4)
         for count in sorted(opened_links_distribution.keys()):
             out_line = f"Searches: {count}, Value: {opened_links_distribution[count]}"
             print(out_line)
             outfile.write(out_line + "\n")
+
+
+def dump_cumulative_sammary(outputFile, statistics):
+
+    with open(outputFile, "a") as outfile:
+        separator = '-' * 80
+        outfile.write(separator + "\n")
+        print(separator)
+        summary_header1 = "Сliсk links distribution:\n"
+        print(summary_header1)
+        outfile.write(summary_header1)
+
+        #  calculate Totall
+        total = sum(val for statistics_key, val in statistics.items()
+                    if isinstance(val, int) and statistics_key != "downloadpdf")
+
+        cumulative_percent = 0
+        for position in sorted(statistics.keys()):
+            if position == "downloadpdf":
+                continue
+            percent = statistics[position] / total
+            cumulative_percent += percent
+            out_line = f"Result number: {position}, " \
+                       f"Number Of Clicks: {statistics[position]}, " \
+                       f"Percent Of Total: {percent * 100:.2f}%, " \
+                       f"Cumulative Percent: {cumulative_percent * 100:.2f}%"
+            print(out_line)
+            outfile.write(out_line + "\n")
+
+        out_line = f"Number of downloadpdf: {statistics['downloadpdf']} "
+        print(out_line)
+        outfile.write(out_line + "\n")
 
 
 if __name__ == "__main__":
@@ -438,6 +500,11 @@ if __name__ == "__main__":
     # Collect opened links distribution in searches
     opened_links_distribution = summarize_events(events, collect_opened_documents_positions_distribution_in_searches)
 
+    opened_links_distribution_cumulative = {}
+    for key, description in opened_links_distribution.items():
+        add_simple_dictionaries(opened_links_distribution_cumulative, description)
+
+    dump_cumulative_sammary(outputFile, opened_links_distribution_cumulative)
     dump_sammary(outputFile)
 
     draw_diagram(search_counts, opened_links, opened_links_cumulative, opened_links_distribution)
