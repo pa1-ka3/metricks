@@ -1,98 +1,194 @@
-
+from .collections_helpers import merge_counts_dictionaries
 
 def collect_search_counts_in_sessions(counts, session_description):
     """
     Collects search counts in sessions.
-    searches_count is the number of searches in the session and also downloadpdf from direct link or qta search
+    searches_count is the number of searches in the session
 
     Args:
         session_description (tuple): The session description tuple.
         counts (dict): The dictionary to store search counts.
 
     Returns:
-        dict: A dictionary containing the search counts.
+        dict: A dictionary with key - search counts in one session.
     """
-    if isinstance(session_description, tuple):
-        session_events = session_description[1]
-        searches_count = len(session_events)
-        if searches_count in counts:
-            counts[searches_count] += 1
-        else:
-            counts[searches_count] = 1
+    if not isinstance(session_description, tuple):
+        return counts
+
+    searches = session_description[1]
+    searches_count = len(searches)
+    if searches_count in counts:
+        counts[searches_count] += 1
+    else:
+        counts[searches_count] = 1
     return counts
 
 
 def collect_opened_links_in_searches(counts, session_description):
     """
-    Collects opened links in searches.
+    Collects {opened_links: searches_count} through sessions
 
     Args:
         session_description (tuple): The session description tuple.
         counts (dict): The dictionary to store opened links counts.
 
     Returns:
-        dict: A dictionary containing the opened links counts.
+        dict: A dictionary with key - opened links in one search
+             {opened_links: searches_count} counts.
 
     Code definitions:
-        session_description is a tuple with session_id and collection of searches named as session_events
+        session_description is a tuple with session_id and collection of searches
     """
-    if isinstance(session_description, tuple):
-        session_events = session_description[1]
+    if not isinstance(session_description, tuple):
+        return counts
 
-        for queryid, events in session_events.items():
-            document_events = set()  # analyze for every search
-            for event in events:
-                if "documentvieweropened" in event \
-                        or "documentviewed" in event:
-                    # Replace action name and get unique document attribute, e.g. re-1-10
-                    name = event.replace("documentvieweropened", "").\
-                        replace("documentviewed", "").\
-                        replace("downloadpdf", "")
-                    document_events.add(name)
-            count = len(document_events)
-            if count in counts:
-                counts[count] += 1
-            else:
-                counts[count] = 1
+    searches = session_description[1]
+
+    for queryid, search in searches.items():
+        document_events = set()  # analyze for every search
+        active_search = False
+        for event in search:
+            if "documentvieweropened" in event \
+                    or "documentviewed" in event:
+                # Replace action name and get unique document attribute, e.g. re-1-10
+                name = event.replace("documentvieweropened", "").\
+                    replace("documentviewed", "")
+                document_events.add(name)
+            if "downloadpdf" in event:
+                active_search = True
+        count = len(document_events)
+        if count == 0 and active_search:
+            count = 1
+        if count in counts:
+            counts[count] += 1
+        else:
+            counts[count] = 1
     return counts
 
 
-def collect_opened_links_by_searchnumbers_in_searches(counts, session_description):
+def collect_opened_links_by_searchnumbers_in_session(counts, session_description):
     """
-    Collects opened links in searches according to number of searches.
+    Collects opened links (inkl. 0) in searches according to number of searches.
 
     Args:
-        session_description (dict): The session description dictionary.
+        session_description (tuple): The session description tuple.
         counts (dict): The dictionary to store opened links counts.
 
     Returns:
-        dict: A dictionary containing the opened links counts.
+        dict: A dictionary of dictionaries,
+         top key - search counts in one session,
+          inner keys - opened links counts.
+          {searches_count: {opened_links_count: count}}
     """
-    if isinstance(session_description, tuple):
-        session_events = session_description[1]
-        searches_count = len(session_events)
+    if not isinstance(session_description, tuple):
+        return counts
 
-        for queryid, events in session_events.items():
-            document_events = set()
-            pdfdownload_count = 0
-            for event in events:
+    searches = session_description[1]
+    searches_count = len(searches)
 
-                if "documentvieweropened" in event \
-                        or "documentviewed" in event:
-                    name = event.replace("documentvieweropened", "").\
-                        replace("documentviewed", "").\
-                        replace("downloadpdf", "")
-                    if len(name) > 0:
-                        document_events.add(name)
-                if "downloadpdf" in event:  # calculate all downloadpdf events in the session
-                    pdfdownload_count += 1
-            document_events_count = len(document_events) #+ pdfdownload_count
-            if searches_count in counts:
-                if document_events_count in counts[searches_count]:
-                    counts[searches_count][document_events_count] += 1
-                else:
-                    counts[searches_count][document_events_count] = 1
+    for queryid, search in searches.items():
+        document_events = set()
+        active_search = False
+        for event in search:
+            if "documentvieweropened" in event or "documentviewed" in event:
+                document_events.add(
+                   event.replace("documentvieweropened", "").replace("documentviewed", ""))
+            if "downloadpdf" in event:
+                active_search = True
+
+        document_events_count = len(document_events)
+        if document_events_count == 0 and active_search:
+            document_events_count = 1
+        counts.setdefault(searches_count, {}).setdefault(document_events_count, 0)
+        counts[searches_count][document_events_count] += 1
+
+    return counts
+
+
+def position_distribution(document_events_stat, document_events):
+    """
+    Calculates the position distribution of opened documents.
+
+    Args:
+        document_events_stat (dict): The dictionary to store opened links counts.
+        document_events (set): A set of opened documents.
+
+    Returns:
+        dict: A dictionary containing the position distribution.
+    """
+    for position_description in document_events:
+        segments = position_description.split("-")
+        if len(segments) == 3:
+            if not isinstance(segments[1], str):
+                print(f"Invalid position description: {position_description}")
+                continue
+            if not segments[1].isdigit():
+                print(f"Invalid position description: {position_description}")
+                continue
+            i = int(segments[1])
+            if i < 11:
+                # position_key = segments[0] + "-" + segments[1]
+                position_key = str(segments[1])
+            elif i < 21:
+                # position_key = segments[0] + "-(11-20)"
+                position_key = "(11-20)"
+            elif i < 101:
+                # position_key = segments[0] + "-(21-100)"
+                position_key = "(21-100)"
             else:
-                counts[searches_count] = {}
-                counts[searches_count][document_events_count] = 1
+                # position_key = segments[0] + "-(101-...)"
+                position_key = "(101-...)"
+
+            if position_key in document_events_stat:
+                document_events_stat[position_key] += 1
+            else:
+                document_events_stat[position_key] = 1
+    return document_events_stat
+
+
+def collect_opened_documents_positions_distribution_in_searches(counts, session_description):
+    """
+    Collects opened links distribution in searches according to number of searches.
+
+    Args:
+        session_description (tuple): The session description dictionary.
+        counts (dict): The dictionary to store opened links counts.
+
+    Returns:
+        dict: A dictionary of dict containing the opened links counts.
+        dict: A dictionary of dictionaries,
+         top key - search counts in one session,
+          inner keys - opened links counts.
+          {searches_count: {opened_links_count: count}}
+    """
+    if not isinstance(session_description, tuple):
+        return counts
+
+    session_events = session_description[1]
+    searches_count = len(session_events)
+
+    for events in session_events.values():
+        document_events = set()
+        document_events_stat = {}
+        active_search = False
+        for event in events:
+            if "downloadpdf" in event:  # calculate all downloadpdf events in the session
+                if "downloadpdf" not in document_events_stat:
+                    document_events_stat["downloadpdf"] = 1
+                else:
+                    document_events_stat["downloadpdf"] += 1
+                active_search = True
+                continue
+            if "documentvieweropened" in event \
+                    or "documentviewed" in event:
+                name = event.replace("documentvieweropened", "").\
+                    replace("documentviewed", "")
+                document_events.add(name)
+                active_search = True
+        if active_search:
+            document_events_stat = position_distribution(document_events_stat, document_events)
+        else:
+            document_events_stat = {'0': 1}
+
+        counts = merge_counts_dictionaries(counts, searches_count, document_events_stat)
     return counts
