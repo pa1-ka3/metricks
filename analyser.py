@@ -1,6 +1,7 @@
 import argparse
 from functools import reduce
 from json import loads
+import re
 from .sort_click_data_files import get_sorted_files
 #from diagram_holoviews import draw_diagram
 from .collections_helpers import add_simple_dictionaries
@@ -253,7 +254,7 @@ def dump_sammary(outputFile):
         print(summary_header3)
         outfile.write(summary_header3)
         for count in sorted(opened_links.keys()):
-            out_line = f"Searches: {count}, Value: {opened_links[count]}"
+            out_line = f"Searches: {count}, Value: {format_opened_links_distribution(opened_links[count])}"
             print(out_line)
             outfile.write(out_line + "\n")
 
@@ -263,9 +264,49 @@ def dump_sammary(outputFile):
         print(summary_header4)
         outfile.write(summary_header4)
         for count in sorted(opened_links_distribution.keys()):
-            out_line = f"Searches: {count}, Value: {opened_links_distribution[count]}"
+            out_line = f"Searches: {count}, Value: {format_opened_links_distribution(opened_links_distribution[count])}"
             print(out_line)
             outfile.write(out_line + "\n")
+
+
+def format_opened_links_distribution(opened_links_distribution):
+    """
+    Formats the opened links distribution for better readability.
+
+    Args:
+        opened_links_distribution (dict): The dictionary containing the opened links distribution.
+
+    Returns:
+        string: A formatted string representing sorted dictionary where positions as keys and counts as values.
+    """
+    if not isinstance(opened_links_distribution, dict):
+        return str(opened_links_distribution)
+
+    formatted_distribution = []
+    for sorted_dict_key in (sorted(opened_links_distribution.keys(), key=lambda item: sort_key(item)) ):
+        output = f"{sorted_dict_key}: {opened_links_distribution[sorted_dict_key]}"
+        formatted_distribution.append(output)
+
+    result = ", ".join(formatted_distribution)
+    return result
+
+
+def sort_key(k):
+    # Priority case: key is integer
+    if isinstance(k, int):
+        return (0, k)
+
+    # Priority second case : key is digits
+    if k.isdigit():
+        return (1, int(k))
+
+    # Second order case: key in format (X-Y) or (X-...)
+    match = re.match(r'^\((\d+)-', k)
+    if match:
+        return (2, int(match.group(1)))
+
+    # Else - all other lines
+    return (3, k)
 
 
 def dump_cumulative_sammary(outputFile, statistics):
@@ -283,7 +324,7 @@ def dump_cumulative_sammary(outputFile, statistics):
                     if isinstance(val, int) and statistics_key != "downloadpdf")
 
         cumulative_percent = 0
-        for position in sorted(statistics.keys()):
+        for position in sorted(statistics.keys(), key=lambda item: sort_key(item) ):
             if position == "downloadpdf":
                 continue
             percent = statistics[position] / total
