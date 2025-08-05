@@ -53,74 +53,7 @@ def analyse_event(acc, line_text, analyser_function=None):
         return acc
 
 
-def get_eventnames(acc, event_description):
-
-    if "payload" not in event_description:
-        return acc
-    payload = event_description["payload"]
-
-    if "eventname" not in payload:
-        return acc
-
-    event_name = payload["eventname"]
-
-    if event_name not in acc:
-        acc[event_name] = set()
-
-    if "searchreference" in payload:
-        search_reference = payload["searchreference"]
-        acc[event_name].add(search_reference)
-
-    return acc
-
-
 document_actions = ["query", "documentvieweropened", "documentviewed", "queryaction", "downloadpdf"]
-
-
-def get_document_actions(acc, event_description):
-    """
-    Analyzes the event description and extracts relevant information.
-
-    Args:
-        acc (dict): The accumulator dictionary to store session IDs and event names.
-
-        event_description (dict): The event description dictionary.
-
-    Returns:
-        dict: A dictionary containing the extracted information.
-    """
-    if "payload" not in event_description:
-        return acc
-    payload = event_description["payload"]
-    if "sessionid" not in payload:
-        return acc
-    session_id = payload["sessionid"]
-
-    if "eventname" not in payload:
-        return acc
-
-    event_name = payload["eventname"]
-    if event_name not in document_actions:
-        return acc
-
-    if "searchreference" in payload:
-        # enrich event name with search reference
-        search_reference = payload["searchreference"]
-        if search_reference is None:
-            search_reference = "None"
-        event_name = event_name + ' ' + search_reference
-
-    if event_name == "query qt":
-        return acc
-
-    if session_id not in acc:
-        acc[session_id] = []
-        acc[session_id].append(event_name)
-    else:
-        acc[session_id].append(event_name)
-    return acc
-
-
 test_subaccounts = ['9988776', '9999997', '9999998', '2323232', '2800000', '0707070', '1111111', '2222123',
                     '2222222', '3333333', '4444444']
 
@@ -142,7 +75,7 @@ def get_document_actions_grouped_by_queryid(acc, event_description):
         return acc
     payload = event_description["payload"]
 
-    if "istestaccount" in payload and payload["istestaccount"]:
+    if payload.get("istestaccount"):
         return acc
 
     if "subaccountid" in payload:
@@ -164,12 +97,11 @@ def get_document_actions_grouped_by_queryid(acc, event_description):
         return acc
 
     if "searchreference" in payload:
+        # enrich event name with search reference
         search_reference = payload["searchreference"]
         if search_reference is None:
             search_reference = "None"
         event_name = event_name + ' ' + search_reference
-    else:
-        event_name = payload["eventname"]
 
     if event_name == "query qt":
         return acc
