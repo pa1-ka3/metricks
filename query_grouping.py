@@ -235,7 +235,7 @@ def save_line(outfile, session, whole_value):
     outfile.write(line + "\n")
 
 
-def is_first_search_active(values):
+def is_first_search_active(input_values):
     """
     Check if the first searches in the session is active (dowloadpdf, documentvieweropened, documentviewed).
     Actually I can't exclude the last search, because data structure is dictionary,
@@ -243,15 +243,21 @@ def is_first_search_active(values):
     If there are active searches more than 1, then I assume that the first searches is active.
 
     Args:
-        values (dict): The dictionary containing events.
+        input_values (dict): The dictionary containing events.
 
     Returns:
         bool: True if the first search is active, False otherwise.
     """
-    if not isinstance(values, dict):
+    if not isinstance(input_values, dict):
         return False
-    if len(values) == 0:
+    if len(input_values) == 0:
         return False
+
+    values = filter_out_qta(input_values)
+
+    if len(values) == 1:
+        return True  # we filtered out qta, so only one search left, then skip it
+
     active_search_count = 0
     for search in values.values():
         active_search = False
@@ -267,17 +273,34 @@ def is_first_search_active(values):
     return False
 
 
+def filter_out_qta(input_values):
+    """
+    Filter out queries with 'qt' in the event description.
+
+    Args:
+        input_values (dict): The dictionary containing events.
+
+    Returns:
+        dict: A filtered dictionary without 'qt' events.
+    """
+    if not isinstance(input_values, dict):
+        return input_values
+    result = {k: v for k, v in input_values.items() if not any('qt' in item for item in v)}
+    return result
+
+
 def save_suspicious_queries(events, outputFile):
         # Print the event chains
     with open(outputFile, "w", encoding='utf-8') as outfile:
         for session, values in events.items():
             if isinstance(values, dict):
-                if len(values.items()) == 1 or len(values.items()) > 7:
+                if len(values.items()) == 1:
+                    continue
+                if len(values.items()) > 7:
                     continue
                 if is_first_search_active(values):
                     continue
-                sub_lines = ["{0} : {1}".format(queryid, event_descr) for queryid, event_descr in values.items() if
-                             len(event_descr) < 7]
+                sub_lines = ["{0} : {1}".format(queryid, event_descr) for queryid, event_descr in values.items()] # if  len(event_descr) < 10]
                 whole_value = ',\n              '.join(sub_lines)
             else:
                 # This is a list of events
@@ -377,6 +400,12 @@ def get_document_queries(acc, event_description):
         if subaccount_id.startswith(tuple(test_subaccounts)):
             return acc
 
+    user_id = payload.get("userid", None)
+
+    if 'user_id_filter' in globals() and user_id_filter is not None:
+        if user_id is None or user_id != user_id_filter:
+            return acc
+
     if "eventname" not in payload:
         return acc
 
@@ -386,8 +415,7 @@ def get_document_queries(acc, event_description):
 
     search_reference = payload.get("searchreference", "None")
 
-    if event_name == "query" and search_reference == "qt":
-        return acc
+
 
     if "queryid" not in payload:
         return acc
@@ -397,9 +425,12 @@ def get_document_queries(acc, event_description):
     if query_id is None:
         query_id = "None"
 
-    query_id = "{0} {1}".format(query_id, subaccount_id)
+    query_id = "{0} {1} {2}".format(query_id, subaccount_id, user_id)
 
     query_text = payload.get("query", "None")
+    if event_name == "query" and search_reference == "qt":
+        query_text = payload.get('keywordsformatted', 'None')
+        #return acc
 
     event_data = (event_name, search_reference, query_text)
 
@@ -422,6 +453,7 @@ if __name__ == "__main__":
     parser.add_argument("--clickPath", help="points to click-data location")
     parser.add_argument("--outputFile", help="points to file with results")
     parser.add_argument("--sessionid", help="sessionid to filter events by session ID, default is 'sessionid'")
+    parser.add_argument("--userid", help="filter sessions only for this userID")
     args = parser.parse_args()
 
     if args.clickPath is None:
@@ -434,6 +466,9 @@ if __name__ == "__main__":
 
     if args.sessionid is not None:
         session_id_filter = args.sessionid
+
+    if args.userid is not None:
+        user_id_filter = int(args.userid)
 
     files = get_sorted_files(clickPath)
 
