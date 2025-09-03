@@ -1,9 +1,14 @@
 from .collections_helpers import merge_counts_dictionaries
+import queue
+
 
 def collect_search_counts_in_sessions(counts, session_description):
     """
     Collects search counts in sessions.
     searches_count is the number of searches in the session
+
+    <--- ToDo -- we have to distinguish search ang qta
+    Opening from QTA - is valid positive search --->
 
     Args:
         session_description (tuple): The session description tuple.
@@ -51,9 +56,13 @@ def collect_opened_links_in_searches(counts, session_description):
             if "documentvieweropened" in event \
                     or "documentviewed" in event:
                 # Replace action name and get unique document attribute, e.g. re-1-10
-                name = event.replace("documentvieweropened", "").\
-                    replace("documentviewed", "")
-                document_events.add(name)
+                print("Processing event: {0}".format(event))
+                if isinstance(event, tuple):
+                    name = event[1]
+                    document_events.add(name)
+                else:
+                    name = event.replace("documentvieweropened", "").replace("documentviewed", "")
+                    document_events.add(name)
             if "downloadpdf" in event:
                 active_search = True
         count = len(document_events)
@@ -192,3 +201,102 @@ def collect_opened_documents_positions_distribution_in_searches(counts, session_
 
         counts = merge_counts_dictionaries(counts, searches_count, document_events_stat)
     return counts
+
+
+def separate_qta_searches(searches):
+    """
+    Args:
+        searches (dict): The dictionary containing searches.
+
+    Returns:
+        tuple: queue of QTA search, queue of other searches.
+    """
+    qta_search = None
+    qta_q = None
+    q = queue.Queue()
+    for searchid, search in searches.items():
+        if searchid.startswith('0 '):
+            qta_search = search
+        else:
+            q.put((searchid, search))
+    if qta_search is not None:
+        qta_q = queue.Queue()
+        for item in qta_search:
+            if item[0] == 'documentviewed':
+                qta_q.put(item)
+    return qta_q, q
+
+
+def append_accumulations(accumulations, session_description):
+    """
+    Append session description to accumulations without any processing.
+
+    Args:
+        accumulations (dict): The dictionary to store accumulated statistics.
+        session_description (tuple): The session description tuple.
+
+    Returns:
+        dict: The updated accumulations dictionary.
+    """
+
+    accumulations[session_description[0]] = session_description[1]
+    return accumulations
+
+
+def distribute_qta_searches(qta_search, other_searches):
+    """
+    Distribute QTA searches across searches in 're' (researcher)
+
+    Args:
+        qta_search (queue): The queue of QTA documentviews.
+        other_searches (queue): The queue of other searches.
+
+    Returns:
+        List: The updated searches list.
+    """
+    if qta_search is None:
+        # No QTA searches, return other searches as is
+        result = {}
+        while not other_searches.Empty():
+            key, value = other_searches.get()
+            result[key] = value
+
+        return result
+
+    if other_searches.Empty():
+        # No other searches, return QTA search as is
+        return {'0': qta_search}
+
+    distributed_searches = {}
+    search_number = 1
+    while not other_searches.empty():
+        search = other_searches.get()
+        distributed_searches[str(search_number)] = search + qta_search
+        search_number += 1
+
+    return distributed_searches
+
+
+def preprocess_events(accumulations, session_description):
+    """
+    Distribute QTA searches across searches in 're' (researcher)
+
+    Args:
+        accumulations (dict): The dictionary to store accumulated statistics.
+        session_description (tuple): The session description tuple.
+
+    Returns:
+        dict: The updated accumulations dictionary.
+    """
+    if not isinstance(session_description, tuple):
+        return accumulations
+
+    qta_searches, other_searches = separate_qta_searches(session_description[1])
+    if qta_searches is None:
+        return append_accumulations(accumulations, session_description)
+
+    searches = distribute_qta_searches(qta_searches, other_searches)
+
+    accumulations[session_description[0]] = searches
+
+    return accumulations

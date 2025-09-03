@@ -9,6 +9,7 @@ from .accumulations import collect_search_counts_in_sessions
 from .accumulations import collect_opened_links_in_searches
 from .accumulations import collect_opened_links_by_searchnumbers_in_session
 from .accumulations import collect_opened_documents_positions_distribution_in_searches
+from .accumulations import preprocess_events
 
 
 def analyse_logfile(path, event_names=None, analyser_function=None):
@@ -290,11 +291,11 @@ if __name__ == "__main__":
 
     files = get_sorted_files(clickPath)
 
-    events = {}   # accumulator for statistics
+    collected_events = {}   # accumulator for statistics
     for file in files:
-        events = analyse_logfile(file, events, get_document_actions_grouped_by_queryid)
+        events = analyse_logfile(file, collected_events, get_document_actions_grouped_by_queryid)
 
-    save_events_file(events, outputFile)
+    save_events_file(collected_events, outputFile)
 
     search_counts = summarize_events(events, collect_search_counts_in_sessions)
     opened_links_cumulative = summarize_events(events, collect_opened_links_in_searches)

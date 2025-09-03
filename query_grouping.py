@@ -4,196 +4,6 @@ from .analyser import analyse_logfile, test_subaccounts, document_actions
 import json
 
 
-def get_document_actions_grouped_by_queryid(acc, event_description):
-    """
-
-    Filter on session ID.
-
-    Analyzes the event description and group extracts information
-    primarily by session ID and then by query ID.
-
-
-
-    Args:
-        acc (dict): The accumulator dictionary to store session IDs and related events.
-
-        event_description (dict): The event description dictionary from log file.
-
-    Returns:
-        dict: A dictionary containing the extracted information.
-    """
-    if "payload" not in event_description:
-        return acc
-    payload = event_description["payload"]
-
-    if "sessionid" not in payload:
-        return acc
-    session_id = payload["sessionid"]
-    if session_id != session_id_filter:
-        return acc
-
-    if "istestaccount" in payload and payload["istestaccount"]:
-        return acc
-
-    if "subaccountid" in payload:
-        subaccount_id = payload["subaccountid"]
-        if subaccount_id is None:
-            return acc
-        if subaccount_id.startswith(tuple(test_subaccounts)):
-            return acc
-
-    if "eventname" not in payload:
-        return acc
-
-    event_name = payload["eventname"]
-    if event_name not in document_actions:
-        return acc
-
-    if "searchreference" in payload:
-        search_reference = payload["searchreference"]
-        if search_reference is None:
-            search_reference = "None"
-        event_name = event_name + ' ' + search_reference
-    else:
-        event_name = payload["eventname"]
-
-    if event_name == "query qt":
-        return acc
-
-    if "queryid" not in payload:
-        return acc
-    # use already prepared event_name
-
-    query_id = payload["queryid"]
-    if query_id is None:
-        query_id = "None"
-
-    query_text = payload.get("query", "None")
-
-    if session_id not in acc:
-        acc[session_id] = {}
-        acc[session_id][query_id] = []
-        acc[session_id][query_id].append(query_text)
-    else:
-        if query_id not in acc[session_id]:
-            acc[session_id][query_id] = []
-            acc[session_id][query_id].append(query_text)
-        else:
-            acc[session_id][query_id].append(query_text)
-
-    return acc
-
-def get_document_actions_with_queries(acc, event_description):
-    """
-
-    Purpose - dump subaccounts
-
-    Analyzes the event description and group extracts information
-    primarily by session ID and then by query ID.
-
-    Args:
-        acc (dict): The accumulator dictionary to store session IDs and related events.
-
-        event_description (dict): The event description dictionary from log file.
-
-    Returns:
-        dict: A dictionary containing the extracted information.
-    """
-    if "payload" not in event_description:
-        return acc
-    payload = event_description["payload"]
-
-    if "sessionid" not in payload:
-        return acc
-    session_id = payload["sessionid"]
-
-
-    if "istestaccount" in payload and payload["istestaccount"]:
-        return acc
-
-    subaccount_id = ""
-    if "subaccountid" in payload:
-        subaccount_id = payload["subaccountid"]
-        if subaccount_id is None:
-            return acc
-        if subaccount_id.startswith(tuple(test_subaccounts)):
-            return acc
-
-    if "eventname" not in payload:
-        return acc
-
-    event_name = payload["eventname"]
-    if event_name not in document_actions:
-        return acc
-
-    if "searchreference" in payload:
-        search_reference = payload["searchreference"]
-        if search_reference is None:
-            search_reference = "None"
-        event_name = event_name + ' ' + search_reference
-    else:
-        event_name = payload["eventname"]
-
-    if event_name == "query qt":
-        return acc
-
-    if "queryid" not in payload:
-        return acc
-    # use already prepared event_name
-
-    query_id = payload["queryid"]
-    if query_id is None:
-        query_id = "None"
-
-    #geoip = get_geoip(event_description)
-    query_id = "{0} {1}".format(query_id, subaccount_id)
-
-    query_text = payload.get("query", "None")
-
-    if session_id not in acc:
-        acc[session_id] = {}
-        acc[session_id][query_id] = []
-        acc[session_id][query_id].append(query_text)
-    else:
-        if query_id not in acc[session_id]:
-            acc[session_id][query_id] = []
-            acc[session_id][query_id].append(query_text)
-        else:
-            acc[session_id][query_id].append(query_text)
-
-    return acc
-
-
-def get_geoip(event_description):
-    """
-    Extracts geoip information from the event description.
-
-    Args:
-        event_description (dict): The event description dictionary from log file.
-
-    Returns:
-        str: A string containing the geoip information.
-    """
-    if "geoip" not in event_description:
-        return "NoGeoip"
-    geoip_description = event_description["geoip"]
-
-    plain_description = ""
-
-    if "country_name" in geoip_description:
-        plain_description += geoip_description["country_name"]
-
-    space_evaluate = lambda description: ' ' if len(description) > 0 else ''
-
-    if "city_name" in geoip_description:
-        plain_description += space_evaluate(plain_description) + geoip_description["city_name"]
-
-    if "region_name" in geoip_description:
-        plain_description += space_evaluate(plain_description) + geoip_description["region_name"]
-
-    return plain_description
-
-
 session_id_filter = "sessionid"
 
 
@@ -289,6 +99,14 @@ def filter_out_qta(input_values):
     return result
 
 
+def format_event_descr(event_descr):
+    if isinstance(event_descr, list):
+        sub_lines = ["{0}".format(event) for event in event_descr]
+        whole_value = ',\n                            '.join(sub_lines)
+        return whole_value
+    return str(event_descr)
+
+
 def save_suspicious_queries(events, outputFile):
         # Print the event chains
     with open(outputFile, "w", encoding='utf-8') as outfile:
@@ -300,73 +118,14 @@ def save_suspicious_queries(events, outputFile):
                     continue
                 if is_first_search_active(values):
                     continue
-                sub_lines = ["{0} : {1}".format(queryid, event_descr) for queryid, event_descr in values.items()] # if  len(event_descr) < 10]
+                sub_lines = ["{0} : {1}".format(queryid, format_event_descr(event_descr)) for queryid, event_descr in values.items()] # if  len(event_descr) < 10]
                 whole_value = ',\n              '.join(sub_lines)
             else:
                 # This is a list of events
-                whole_value = ', '.join(values)
+                whole_value = ',\n'.join(values)
             if len(whole_value) == 0:
                 continue
             save_line(outfile, session, whole_value)
-
-    # Print the event chains
-
-
-def get_grouped_by_queryid_dump(acc, event_description):
-    """
-    Analyzes the event description and group extracts information
-    primarily by session ID and then by query ID.
-
-    Args:
-        acc (dict): The accumulator dictionary to store session IDs and related events.
-
-        event_description (dict): The event description dictionary from log file.
-
-    Returns:
-        dict: A dictionary containing the extracted information.
-    """
-    if "payload" not in event_description:
-        return acc
-    payload = event_description["payload"]
-
-    if "sessionid" not in payload:
-        return acc
-    session_id = payload["sessionid"]
-    if session_id != session_id_filter:
-        return acc
-
-    if "istestaccount" in payload and payload["istestaccount"]:
-        return acc
-
-    if "subaccountid" in payload:
-        subaccount_id = payload["subaccountid"]
-        if subaccount_id is None:
-            return acc
-        if subaccount_id.startswith(tuple(test_subaccounts)):
-            return acc
-
-    if "eventname" not in payload:
-        return acc
-
-    event_name = payload["eventname"]
-    if event_name not in document_actions:
-        return acc
-
-    if "searchreference" in payload:
-        search_reference = payload["searchreference"]
-        if search_reference is None:
-            search_reference = "None"
-        event_name = event_name + ' ' + search_reference
-    else:
-        event_name = payload["eventname"]
-
-    if event_name == "query qt":
-        return acc
-
-    if "queryid" not in payload:
-        return acc
-
-    print(json.dumps(payload, indent=4))
 
 
 def get_document_queries(acc, event_description):
@@ -414,8 +173,6 @@ def get_document_queries(acc, event_description):
         return acc
 
     search_reference = payload.get("searchreference", "None")
-
-
 
     if "queryid" not in payload:
         return acc
@@ -477,3 +234,5 @@ if __name__ == "__main__":
         events = analyse_logfile(file, events, get_document_queries)
 
     save_suspicious_queries(events, outputFile)
+
+    #events = summarize_events(collected_events, preprocess_events)
