@@ -9,7 +9,7 @@ from .accumulations import collect_search_counts_in_sessions
 from .accumulations import collect_opened_links_in_searches
 from .accumulations import collect_opened_links_by_searchnumbers_in_session
 from .accumulations import collect_opened_documents_positions_distribution_in_searches
-from .accumulations import preprocess_events
+
 
 
 def analyse_logfile(path, event_names=None, analyser_function=None):

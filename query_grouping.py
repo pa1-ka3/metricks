@@ -2,37 +2,27 @@ import argparse
 from .sort_click_data_files import get_sorted_files
 from .analyser import analyse_logfile, test_subaccounts, document_actions
 import json
+from .accumulations import preprocess_events
+from .analyser import summarize_events
+from .accumulations import collect_opened_documents_positions_distribution_in_searches_v2
+from .collections_helpers import add_simple_dictionaries
+from .analyser import dump_cumulative_sammary
 
 
 session_id_filter = "sessionid"
 
 
-def save_filtered_events_file(events, outputFile):
+def save_events_file(events, outputFile):
     # Print the event chains
     with open(outputFile, "w", encoding='utf-8') as outfile:
-        for session, values in events.items():
+        for session in sorted(events.keys()):
+            values = events[session]
             if isinstance(values, dict):
-                #if len(values.items()) < 10:
-                #    continue
-                sub_lines = ["{0} : {1}".format(queryid, event_descr) for queryid, event_descr in values.items() if len(event_descr)< 7]
+                sub_lines = ["{0} : {1}".format(queryid, format_event_descr(values[queryid])) for queryid in sorted(values.keys())] # if  len(event_descr) < 10]
                 whole_value = ',\n              '.join(sub_lines)
             else:
                 # This is a list of events
-                whole_value = ', '.join(values)
-            if len(whole_value) == 0:
-                continue
-            save_line(outfile, session, whole_value)
-        save_line(outfile, 20*'-', 20*'-')
-
-        for session, values in events.items():
-            if isinstance(values, dict):
-                if len(values.items()) < 100:
-                    continue
-                sub_lines = ["{0} : {1}".format(queryid, event_descr) for queryid, event_descr in values.items()]
-                whole_value = ',\n              '.join(sub_lines)
-            else:
-                # This is a list of events
-                whole_value = ', '.join(values)
+                whole_value = ',\n'.join(values)
             if len(whole_value) == 0:
                 continue
             save_line(outfile, session, whole_value)
@@ -233,6 +223,18 @@ if __name__ == "__main__":
     for file in files:
         events = analyse_logfile(file, events, get_document_queries)
 
-    save_suspicious_queries(events, outputFile)
+    save_events_file(events, outputFile+'.txt')
 
-    #events = summarize_events(collected_events, preprocess_events)
+    preprocessed_events = summarize_events(events, preprocess_events)
+    save_events_file(preprocessed_events, outputFile + 'prepr.txt')
+
+    # Collect opened links distribution in searches
+    opened_links_distribution = summarize_events(preprocessed_events,
+                                                 collect_opened_documents_positions_distribution_in_searches_v2)
+
+    opened_links_distribution_cumulative = {}
+    for key, description in opened_links_distribution.items():
+        add_simple_dictionaries(opened_links_distribution_cumulative, description)
+
+    dump_cumulative_sammary(outputFile, opened_links_distribution_cumulative)
+

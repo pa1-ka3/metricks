@@ -126,7 +126,12 @@ def position_distribution(document_events_stat, document_events):
         dict: A dictionary containing the position distribution.
     """
     for position_description in document_events:
-        segments = position_description.split("-")
+        try:
+            segments = position_description.split("-")
+        except Exception as e:
+            print(f"Error splitting position description: {position_description}, error: {e}")
+            continue
+
         if len(segments) == 3:
             if not isinstance(segments[1], str):
                 print(f"Invalid position description: {position_description}")
@@ -203,6 +208,55 @@ def collect_opened_documents_positions_distribution_in_searches(counts, session_
     return counts
 
 
+def collect_opened_documents_positions_distribution_in_searches_v2(counts, session_description):
+    """
+    Collects opened links distribution in searches according to number of searches.
+
+    Args:
+        session_description (tuple): The session description dictionary.
+        counts (dict): The dictionary to store opened links counts.
+
+    Returns:
+        dict: A dictionary of dict containing the opened links counts.
+        dict: A dictionary of dictionaries,
+         top key - search counts in one session,
+          inner keys - opened links counts.
+          {searches_count: {opened_links_count: count}}
+    """
+    if not isinstance(session_description, tuple):
+        return counts
+
+    session_events = session_description[1]
+    searches_count = len(session_events)
+
+    for events in session_events.values():
+        document_events = set()
+        document_events_stat = {}
+        active_search = False
+        for event in events:
+            if "downloadpdf" in event:  # calculate all downloadpdf events in the session
+                if "downloadpdf" not in document_events_stat:
+                    document_events_stat["downloadpdf"] = 1
+                else:
+                    document_events_stat["downloadpdf"] += 1
+                active_search = True
+                continue
+            if "documentvieweropened" in event \
+                    or "documentviewed" in event:
+                name = event[1]  # here already event description like 're-1-10'
+                if name is None:
+                    name = 'qt-1-1'  # if None, then it is qta event, so hardcode its position
+                document_events.add(name)
+                active_search = True
+        if active_search:
+            document_events_stat = position_distribution(document_events_stat, document_events)
+        else:
+            document_events_stat = {'0': 1}
+
+        counts = merge_counts_dictionaries(counts, searches_count, document_events_stat)
+    return counts
+
+
 def separate_qta_searches(searches):
     """
     Args:
@@ -254,25 +308,35 @@ def distribute_qta_searches(qta_search, other_searches):
     Returns:
         List: The updated searches list.
     """
+    if other_searches.empty():
+        # No other searches, return QTA search only
+        qta_searches_list = []
+        while not qta_search.empty():
+            value = qta_search.get()
+            qta_searches_list.append(value)
+        return {'0': qta_searches_list}
+
+    '''''
     if qta_search is None:
-        # No QTA searches, return other searches as is
+        # No QTA searches, return other searches as original dict
         result = {}
-        while not other_searches.Empty():
+        while not other_searches.empty():
             key, value = other_searches.get()
             result[key] = value
-
         return result
+    '''
 
-    if other_searches.Empty():
-        # No other searches, return QTA search as is
-        return {'0': qta_search}
+    if qta_search is not None:
+        while not qta_search.empty():
+            item_left = qta_search.get()
+            item_right = other_searches.get()
+            item_right[1].append(item_left)
+            other_searches.put(item_right)
 
     distributed_searches = {}
-    search_number = 1
     while not other_searches.empty():
-        search = other_searches.get()
-        distributed_searches[str(search_number)] = search + qta_search
-        search_number += 1
+        key, value = other_searches.get()
+        distributed_searches[key] = value
 
     return distributed_searches
 
@@ -292,8 +356,8 @@ def preprocess_events(accumulations, session_description):
         return accumulations
 
     qta_searches, other_searches = separate_qta_searches(session_description[1])
-    if qta_searches is None:
-        return append_accumulations(accumulations, session_description)
+    #if qta_searches is None:
+    #    return append_accumulations(accumulations, session_description)
 
     searches = distribute_qta_searches(qta_searches, other_searches)
 
