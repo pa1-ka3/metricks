@@ -7,6 +7,7 @@ from .analyser import summarize_events
 from .accumulations import collect_opened_documents_positions_distribution_in_searches_v2
 from .collections_helpers import add_simple_dictionaries
 from .analyser import dump_cumulative_sammary
+from .accumulations import select_events_with_not_opened
 
 
 session_id_filter = "sessionid"
@@ -237,4 +238,8 @@ if __name__ == "__main__":
         add_simple_dictionaries(opened_links_distribution_cumulative, description)
 
     dump_cumulative_sammary(outputFile, opened_links_distribution_cumulative)
+
+    events_with_not_opened = summarize_events(events, select_events_with_not_opened)
+    save_events_file(events_with_not_opened, outputFile + 'not_found.txt')
+
 

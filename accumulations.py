@@ -364,3 +364,29 @@ def preprocess_events(accumulations, session_description):
     accumulations[session_description[0]] = searches
 
     return accumulations
+
+
+def select_events_with_not_opened(accumulations, session_description):
+    """
+    Get events were no documents were clicked.
+
+    Args:
+        accumulations (dict): The dictionary to store accumulated statistics.
+        session_description (tuple): The session description tuple.
+
+    Returns:
+        dict: The updated accumulations dictionary.
+    """
+    if not isinstance(session_description, tuple):
+        return accumulations
+
+    clicked = False
+    clicked_events = {'documentvieweropened', 'documentviewed', 'downloadpdf'}
+    for searchid, events in session_description[1].items():
+        if any(event[0] in clicked_events for event in events):
+            clicked = True
+            break
+
+    if not clicked:
+        accumulations[session_description[0]] = session_description[1]
+    return accumulations
