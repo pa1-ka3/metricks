@@ -390,3 +390,123 @@ def select_events_with_not_opened(accumulations, session_description):
     if not clicked:
         accumulations[session_description[0]] = session_description[1]
     return accumulations
+
+
+def select_topmost_click_in_searches(accumulations, session_description):
+    """
+    Collect the only topmost clicked document in each search. It could be qtq like 'qt-1-1' or re-1-10
+
+    Args:
+        accumulations (dict): The dictionary to store accumulated statistics.
+        session_description (tuple): The session description tuple.
+
+    Returns:
+        dict: The updated accumulations dictionary. looks like  { search_id : topmost_click}
+        in case no document was clicked - zero position {search_id : 0}
+    """
+    if not isinstance(session_description, tuple):
+        return accumulations
+
+    clicked_events = {'documentvieweropened', 'documentviewed'}
+    topmost_clicks = {}
+    for searchid, events in session_description[1].items():
+        topmost_click = 9999  # Default to 9999 if no document is clicked
+        for event in events:
+            if not isinstance(event, tuple):
+                continue
+            if event[0] not in clicked_events:
+                continue
+            if event[1] is None:
+                continue
+            if event[1] == '':
+                continue
+
+            click_position_label = event[1].split('-')[1]
+            if click_position_label.isdigit():
+                click_position = int(click_position_label)
+                topmost_click = min(topmost_click, click_position)
+
+        topmost_clicks[searchid] = topmost_click
+
+    if topmost_clicks:
+        accumulations[session_description[0]] = topmost_clicks
+
+    return accumulations
+
+
+def collect_first_click(accumulations, session_description):
+    """
+    Collect the first clicked document in each session.
+
+    Args:
+        accumulations (dict): The dictionary to store accumulated statistics.
+        session_description (tuple): The session description tuple.
+
+    Returns:
+        dict: The updated accumulations dictionary.
+    """
+    if not isinstance(session_description, tuple):
+        return accumulations
+
+    clicked_events = {'documentvieweropened', 'documentviewed'}
+    first_click = None
+    for searchid, events in session_description[1].items():
+        for event in events:
+            if not isinstance(event, tuple):
+                continue
+            if event[1] is None:
+                continue
+            if event[1] == '':
+                continue
+            if event[0] in clicked_events:
+                first_click = event
+                break
+        if first_click is not None:
+            break
+
+    try:
+        if (first_click is not None) and isinstance(first_click, tuple):
+            first_click_description = first_click[1]  # e.g. 're-1-10'
+            description_components = first_click_description.split('-')
+            position = 0
+            if len(description_components) == 3 and description_components[1].isdigit():
+                position = int(description_components[1])
+            if description_components[1] == 'qt':
+                position = 1
+            if position > 0:
+                accumulations[session_description[0]] = position
+    except Exception as e:
+        print(f"Error processing first click: {first_click}, error: {e}")
+    return accumulations
+
+def calculate_click_through(accumulations, position_threshold):
+    """
+    Calculate click-through rate based on topmost click positions.
+
+    Args:
+        accumulations (dict): The dictionary to store accumulated statistics.
+        position_threshold (int): filtering value - only positions less or equal will be counted
+
+    Returns:
+        float: rate of clicks with position higher than The updated accumulations dictionary with click-through rates.
+    """
+
+    counted_clicks = 0
+    total_clicks = 0
+
+    for searches_session in accumulations.values():
+        for search_topmost_click in searches_session.values():
+            total_clicks += 1
+            if search_topmost_click <= position_threshold:
+                counted_clicks += 1
+
+    click_through_rate = 0.0
+    if total_clicks > 0:
+        click_through_rate = counted_clicks / total_clicks
+
+    result = {}
+    result['click_through_rate'] = click_through_rate
+    result['counted_clicks'] = counted_clicks
+    result['total_clicks'] = total_clicks
+
+    return result

@@ -8,18 +8,23 @@ from .accumulations import collect_opened_documents_positions_distribution_in_se
 from .collections_helpers import add_simple_dictionaries
 from .analyser import dump_cumulative_sammary
 from .accumulations import select_events_with_not_opened
+from .accumulations import collect_first_click
+import statistics
+from .accumulations import select_topmost_click_in_searches
+from .accumulations import calculate_click_through
 
 
 session_id_filter = "sessionid"
 
 
-def save_events_file(events, outputFile):
+def save_events_file(events, outputFile, events_min_count=0):
     # Print the event chains
     with open(outputFile, "w", encoding='utf-8') as outfile:
         for session in sorted(events.keys()):
             values = events[session]
             if isinstance(values, dict):
-                sub_lines = ["{0} : {1}".format(queryid, format_event_descr(values[queryid])) for queryid in sorted(values.keys())] # if  len(event_descr) < 10]
+                sub_lines = ["{0} : {1}".format(queryid, format_event_descr(values[queryid]))
+                             for queryid in sorted(values.keys()) if len(values) > events_min_count]
                 whole_value = ',\n              '.join(sub_lines)
             else:
                 # This is a list of events
@@ -220,16 +225,19 @@ if __name__ == "__main__":
 
     files = get_sorted_files(clickPath)
 
-    events = {}   # accumulator for statistics
+    events = {}   # accumulator for raw statistics
     for file in files:
         events = analyse_logfile(file, events, get_document_queries)
 
     save_events_file(events, outputFile+'.txt')
 
+    # Distribute "qta" events to the nearest "re" searches
     preprocessed_events = summarize_events(events, preprocess_events)
     save_events_file(preprocessed_events, outputFile + 'prepr.txt')
+    save_events_file(preprocessed_events, outputFile + 'prepr_massive_events.txt', events_min_count=5)
 
     # Collect opened links distribution in searches
+    #  {searches_count: {opened_links_count: count}}
     opened_links_distribution = summarize_events(preprocessed_events,
                                                  collect_opened_documents_positions_distribution_in_searches_v2)
 
@@ -241,5 +249,33 @@ if __name__ == "__main__":
 
     events_with_not_opened = summarize_events(events, select_events_with_not_opened)
     save_events_file(events_with_not_opened, outputFile + 'not_found.txt')
+
+    # CTR (Click-Through Rate), CTR@K, Non-Click Rate
+    topmost_clicks = summarize_events(preprocessed_events, select_topmost_click_in_searches)
+    save_events_file(topmost_clicks, outputFile + '_topmost_clicks.txt')
+    CTR_at_0 = calculate_click_through(topmost_clicks, 0)
+    print("CTR@0: ", CTR_at_0)
+    CTR_at_1 = calculate_click_through(topmost_clicks, 1)
+    print("CTR@1: ", CTR_at_1)
+    CTR_at_10 = calculate_click_through(topmost_clicks, 10)
+    print("CTR@10: ", CTR_at_10)
+    CTR_at_100 = calculate_click_through(topmost_clicks, 100)
+    print("CTR@100: ", CTR_at_100)
+
+    CTR = calculate_click_through(topmost_clicks, 9998)
+    print("CTR: ", CTR)
+
+    Non_Click_Rate = 1.0 - CTR['click_through_rate']
+    print("Non_Click_Rate: ", Non_Click_Rate)
+
+    total_searches = sum([len(value) for value in topmost_clicks.values()])
+    print("Total searches: ", total_searches)
+
+    # Average First Click Rank (Average position of the first click)
+    average_first_click = summarize_events(preprocessed_events, collect_first_click)
+    median_value = statistics.median(average_first_click.values())
+    average_value = statistics.mean(average_first_click.values())
+    print(median_value, average_value)
+
 
 
