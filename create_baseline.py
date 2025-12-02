@@ -31,6 +31,7 @@ class BaseConfig:
         baseline_folder: str
 
 
+
 class ConfigDenver(BaseConfig):
     log_file = r"d:\content-team\update-automation-2\Click-Data-Elastic-7\create_baseline_metrics_test.log"
 
