@@ -17,14 +17,14 @@ class BaseConfig:
         python3: str
         scripts_folder: str
         skipRunTests = False
+
+    class WorkFolders:
         run_query_folder: str
         run_query_folder_bf: str
 
     class InputPaths:
         in_adataset_folder: str
         filter_adataset = "adataset.*.*.json"
-        run_query_folder: str
-        run_query_folder_bf: str
 
     class OutputPaths:
         out_queries_folder: str
@@ -39,14 +39,14 @@ class ConfigDenver(BaseConfig):
         python3 = r"c:\Users\svc_goldfire_stage\AppData\Local\Programs\Python\Python312\python.exe"
         scripts_folder = r"d:\content-team\update-automation-2\Click-Data-Elastic-7"
         skipRunTests = False
+
+    class WorkFolders:
         run_query_folder = r"d:\gf-goldfire.test.art.runner_metrik1\search-quality"
         run_query_folder_bf = r"d:\gf-goldfire.test.art.runner.bf\search-quality"
 
     class InputPaths:
         in_adataset_folder = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\search-quality\popular-docs"
         filter_adataset = "adataset.*.*.json"
-        run_query_folder = r"d:\gf-goldfire.test.art.runner_metrik1"
-        run_query_folder_bf = r"d:\gf-goldfire.test.art.runner.bf_metrik1"
 
     class OutputPaths:
         out_queries_folder = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\search-metrics-test-quality\queries"
@@ -61,14 +61,14 @@ class ConfigDev(BaseConfig):
         python3 = r"c:\Projects\Content.Scripts\patents_clickdata\gf-content.scripts.patent\gfrscripts\click-data\venv\Scripts\python.exe"
         scripts_folder = r"C:\Projects\Content.Scripts\patents_clickdata\gf-content.scripts.patent\gfrscripts\click-data\click_analyzer\MRR_EWB"
         skipRunTests = False
+
+    class WorkFolders:
         run_query_folder = r"d:\gf-goldfire.test.art.runner_metrik1\search-quality"
         run_query_folder_bf = r"d:\gf-goldfire.test.art.runner.bf\search-quality"
 
     class InputPaths:
         in_adataset_folder = r"c:\Data\ClickData_queries\popular-docs"
         filter_adataset = "adataset.*.*.json"
-        run_query_folder = r"d:\gf-goldfire.test.art.runner_metrik1"
-        run_query_folder_bf = r"d:\gf-goldfire.test.art.runner.bf_metrik1"
 
     class OutputPaths:
         out_queries_folder = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\search-metrics-test-quality\queries"
@@ -119,14 +119,6 @@ def run_subprocess(args, log_file):
 
 def main():
     config = ConfigDev
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--python2", default=config.Scripts.python2)
-    parser.add_argument("--python3", default=config.Scripts.python3)
-    parser.add_argument("--out_queries_folder", default=config.OutputPaths.out_queries_folder)
-    #parser.add_argument("--run_query_folder", default=config.InputPaths.run_query_folder)
-    #parser.add_argument("--run_query_folder_bf", default=config.InputPaths.run_query_folder_bf)
-
-    args = parser.parse_args()
 
     if not os.path.exists(config.log_file):
         open(config.log_file, "w").close()
@@ -152,7 +144,7 @@ def main():
     # 01 - get queries from adataset
     out_queries_file = os.path.join(config.OutputPaths.out_queries_folder, f"queries.{period_from}.{period_to}.txt")
     script_get_queries = os.path.join(config.Scripts.scripts_folder, "get_queries.py")
-    #run_subprocess([args.python3, script_get_queries, last_adataset, out_queries_file], config.log_file)
+    #run_subprocess([config.Scripts.python3, script_get_queries, last_adataset, out_queries_file], config.log_file)
     write_info(f"(out file '{out_queries_file}')", config.log_file)
 
     # 02 - run queries
@@ -161,22 +153,22 @@ def main():
     executed_researcher = os.path.join(dataset_queries_folder, f"researcher.{period_from}.{period_to}.{run_date}.jsonl")
     executed_researcher_bf = os.path.join(dataset_queries_folder, f"researcherbf.{period_from}.{period_to}.{run_date}.jsonl")
 
-    #in_run_query_file = os.path.join(args.run_query_folder, "queries.txt")
-    #out_qta_run_file = os.path.join(args.run_query_folder, "qta.out.jsonl")
+    #in_run_query_file = os.path.join(config.WorkFolders.run_query_folder, "queries.txt")
+    #out_qta_run_file = os.path.join(config.WorkFolders.run_query_folder, "qta.out.jsonl")
     out_qta_run_file = r"c:\Data\ClickData_queries\TestResults\qta.out.jsonl"
-    #out_researcher_run_file = os.path.join(args.run_query_folder, "researcher.out.jsonl")
+    #out_researcher_run_file = os.path.join(config.WorkFolders.run_query_folder, "researcher.out.jsonl")
     out_researcher_run_file = r"c:\Data\ClickData_queries\TestResults\researcher.out.jsonl"
-    #script_run_queries = os.path.join(args.run_query_folder, "run-QueryStatisticTests.bat")
+    #script_run_queries = os.path.join(config.WorkFolders.run_query_folder, "run-QueryStatisticTests.bat")
 
-    #in_run_query_file_bf = os.path.join(args.run_query_folder_bf, "queries.txt")
-    #out_researcher_run_file_bf = os.path.join(args.run_query_folder_bf, "researcher.out.jsonl")
+    #in_run_query_file_bf = os.path.join(config.WorkFolders.run_query_folder_bf, "queries.txt")
+    #out_researcher_run_file_bf = os.path.join(config.WorkFolders.run_query_folder_bf, "researcher.out.jsonl")
     out_researcher_run_file_bf = r"c:\Data\ClickData_queries\TestResults_bf\researcher.out.jsonl"
-    #script_run_queries_bf = os.path.join(args.run_query_folder_bf, "run-QueryStatisticTests.bat")
+    #script_run_queries_bf = os.path.join(config.WorkFolders.run_query_folder_bf, "run-QueryStatisticTests.bat")
 
     if not config.Scripts.skipRunTests:
         # Clean up work folders
         '''
-        for folder in [args.run_query_folder, args.run_query_folder_bf]:
+        for folder in [config.WorkFolders.run_query_folder, config.WorkFolders.run_query_folder_bf]:
             if os.path.exists(folder):
                 shutil.rmtree(folder)
             os.makedirs(folder, exist_ok=True)
@@ -212,7 +204,7 @@ def main():
         executed_researcher_bf: baseline_researcher_bf
     }
     for src, dst in combine_types.items():
-        run_subprocess([args.python3, script_get_documents, last_adataset, src, dst], config.log_file)
+        run_subprocess([config.Scripts.python3, script_get_documents, last_adataset, src, dst], config.log_file)
     write_info(f"(out files '{baseline_researcher}' and '{baseline_qta}')", config.log_file)
 
     # 04 - create baseline
@@ -225,7 +217,7 @@ def main():
     }
     for name, path in baseline_types.items():
         out_html = os.path.join(config.OutputPaths.baseline_folder, f"{name}.{period_from}.{period_to}.{run_date}")
-        run_subprocess([args.python3, script_create_baseline_html, path, out_html], config.log_file)
+        run_subprocess([config.Scripts.python3, script_create_baseline_html, path, out_html], config.log_file)
 
     # 05 - insert baseline to elasticsearch
     """
@@ -234,7 +226,7 @@ def main():
     script_insert_baseline_to_elk = os.path.join(config.Scripts.scripts_folder, "baseline_to_es5.py")
     for source_type in ["dataset", "researcher", "qta", "researcherbf"]:
         json_file = os.path.join(config.OutputPaths.baseline_folder, f"{source_type}.{period_from}.{period_to}.{run_date}.json")
-        run_subprocess([args.python2, script_insert_baseline_to_elk, json_file, source_type, period_from, period_to, run_date_time], config.log_file)
+        run_subprocess([config.Scripts.python2, script_insert_baseline_to_elk, json_file, source_type, period_from, period_to, run_date_time], config.log_file)
     """
     write_info("end", config.log_file)
 
