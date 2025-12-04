@@ -9,6 +9,13 @@ import smtplib
 from email.mime.text import MIMEText
 
 
+def EnsureDir(f):
+    d = os.path.dirname(f)
+    if not os.path.exists(d):
+        os.makedirs(d)
+# end of EnsureDir
+
+
 class BaseConfig:
     log_file: str
 
@@ -21,13 +28,13 @@ class BaseConfig:
     class WorkFolders:
         run_query_folder: str
         run_query_folder_bf: str
+        out_queries_folder_1: str
 
     class InputPaths:
         in_adataset_folder: str
         filter_adataset = "adataset.*.*.json"
 
     class OutputPaths:
-        out_queries_folder: str
         baseline_folder: str
 
 
@@ -44,13 +51,14 @@ class ConfigDenver(BaseConfig):
     class WorkFolders:
         run_query_folder = r"d:\gf-goldfire.test.art.runner_metrik1\search-quality"
         run_query_folder_bf = r"d:\gf-goldfire.test.art.runner.bf\search-quality"
+        out_queries_folder_1 = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\search-metrics-test-quality\queries"
 
     class InputPaths:
         in_adataset_folder = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\search-quality\popular-docs"
         filter_adataset = "adataset.*.*.json"
 
     class OutputPaths:
-        out_queries_folder = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\search-metrics-test-quality\queries"
+
         baseline_folder = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\search-metrics-test\dataset"
 
 
@@ -66,13 +74,13 @@ class ConfigDev(BaseConfig):
     class WorkFolders:
         run_query_folder = r"d:\gf-goldfire.test.art.runner_metrik1\search-quality"
         run_query_folder_bf = r"d:\gf-goldfire.test.art.runner.bf\search-quality"
+        out_queries_folder_1 = r"c:\Data\ClickData_work\1"
 
     class InputPaths:
         in_adataset_folder = r"c:\Data\ClickData_queries\popular-docs"
         filter_adataset = "adataset.*.*.json"
 
     class OutputPaths:
-        out_queries_folder = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\search-metrics-test-quality\queries"
         baseline_folder = r"c:\Data\ClickData_results\baseline"
 
 
@@ -142,11 +150,10 @@ def main():
     period_to = last_adataset_name.split(".")[2]
     write_info(f"(last adataset: '{last_adataset}' )", config.log_file)
 
-    # 01 - get queries from adataset 
-    out_queries_file = os.path.join(config.OutputPaths.out_queries_folder, f"queries.{period_from}.{period_to}.txt")
-    script_get_queries = os.path.join(config.Scripts.scripts_folder, "get_queries.py")
-    #run_subprocess([config.Scripts.python3, script_get_queries, last_adataset, out_queries_file], config.log_file)
-    write_info(f"(out file '{out_queries_file}')", config.log_file)
+    # 01 - get queries from adataset
+    queries_file_01 = get_queries_file(config, last_adataset, period_from, period_to)
+
+    return
 
     # 02 - run queries
     dataset_queries_folder = r"c:\Data\ClickData_queries\dataset"
@@ -176,8 +183,8 @@ def main():
         '''
 
         # Copy queries for tests
-        #shutil.copyfile(out_queries_file, in_run_query_file)
-        #shutil.copyfile(out_queries_file, in_run_query_file_bf)
+        shutil.copyfile(queries_file_01, in_run_query_file)
+        shutil.copyfile(queries_file_01, in_run_query_file_bf)
 
         # Run tests
         #run_subprocess([script_run_queries], config.log_file)
@@ -230,6 +237,15 @@ def main():
         run_subprocess([config.Scripts.python2, script_insert_baseline_to_elk, json_file, source_type, period_from, period_to, run_date_time], config.log_file)
     """
     write_info("end", config.log_file)
+
+
+def get_queries_file(config, last_adataset, period_from, period_to):
+    out_queries_file = os.path.join(config.WorkFolders.out_queries_folder_1, f"queries.{period_from}.{period_to}.txt")
+    script_get_queries = os.path.join(config.Scripts.scripts_folder, "get_queries.py")
+    EnsureDir(out_queries_file)
+    run_subprocess([config.Scripts.python3, script_get_queries, last_adataset, out_queries_file], config.log_file)
+    write_info(f"(out file '{out_queries_file}')", config.log_file)
+    return out_queries_file
 
 
 if __name__ == "__main__":
