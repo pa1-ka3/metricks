@@ -142,7 +142,7 @@ def main():
     period_to = last_adataset_name.split(".")[2]
     write_info(f"(last adataset: '{last_adataset}' )", config.log_file)
 
-    # 01 - get queries from adataset
+    # 01 - get queries from adataset 
     out_queries_file = os.path.join(config.OutputPaths.out_queries_folder, f"queries.{period_from}.{period_to}.txt")
     script_get_queries = os.path.join(config.Scripts.scripts_folder, "get_queries.py")
     #run_subprocess([config.Scripts.python3, script_get_queries, last_adataset, out_queries_file], config.log_file)
