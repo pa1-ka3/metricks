@@ -29,6 +29,7 @@ class BaseConfig:
         run_query_folder: str
         run_query_folder_bf: str
         out_queries_folder_1: str
+        out_tests_folder_2: str
 
     class InputPaths:
         in_adataset_folder: str
@@ -40,7 +41,7 @@ class BaseConfig:
 
 
 class ConfigDenver(BaseConfig):
-    log_file = r"d:\content-team\update-automation-2\Click-Data-Elastic-7\create_baseline_metrics_test.log"
+    log_file = r"d:\content-team\click-data\Work\Log\create_baseline_metrics_test.log"
 
     class Scripts:
         python2 = r"c:\Python27\python.exe"
@@ -49,9 +50,10 @@ class ConfigDenver(BaseConfig):
         skipRunTests = False
 
     class WorkFolders:
-        run_query_folder = r"d:\gf-goldfire.test.art.runner_metrik1\search-quality"
-        run_query_folder_bf = r"d:\gf-goldfire.test.art.runner.bf\search-quality"
-        out_queries_folder_1 = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\search-metrics-test-quality\queries"
+        run_query_folder = r"d:\gf-goldfire.test.art.runner_metrik1"
+        run_query_folder_bf = r"d:\gf-goldfire.test.art.runner.bf_metrik1"
+        out_queries_folder_1 = r"d:\content-team\click-data\Work\1"
+        out_tests_folder_2 = r"d:\content-team\click-data\Work\2"
 
     class InputPaths:
         in_adataset_folder = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\search-quality\popular-docs"
@@ -75,6 +77,7 @@ class ConfigDev(BaseConfig):
         run_query_folder = r"d:\gf-goldfire.test.art.runner_metrik1\search-quality"
         run_query_folder_bf = r"d:\gf-goldfire.test.art.runner.bf\search-quality"
         out_queries_folder_1 = r"c:\Data\ClickData_work\1"
+        out_tests_folder_2 = r"c:\Data\ClickData_work\2"
 
     class InputPaths:
         in_adataset_folder = r"c:\Data\ClickData_queries\popular-docs"
@@ -127,7 +130,7 @@ def run_subprocess(args, log_file):
 
 
 def main():
-    config = ConfigDev
+    config = ConfigDenver
 
     if not os.path.exists(config.log_file):
         open(config.log_file, "w").close()
@@ -151,69 +154,20 @@ def main():
     write_info(f"(last adataset: '{last_adataset}' )", config.log_file)
 
     # 01 - get queries from adataset
-    queries_file_01 = get_queries_file(config, last_adataset, period_from, period_to)
+    prepare_queries_file(config, last_adataset, period_from, period_to)
 
-    return
-
-    # 02 - run queries
-    dataset_queries_folder = r"c:\Data\ClickData_queries\dataset"
-    executed_qta = os.path.join(dataset_queries_folder, f"qta.{period_from}.{period_to}.{run_date}.jsonl")
-    executed_researcher = os.path.join(dataset_queries_folder, f"researcher.{period_from}.{period_to}.{run_date}.jsonl")
-    executed_researcher_bf = os.path.join(dataset_queries_folder, f"researcherbf.{period_from}.{period_to}.{run_date}.jsonl")
-
-    #in_run_query_file = os.path.join(config.WorkFolders.run_query_folder, "queries.txt")
-    #out_qta_run_file = os.path.join(config.WorkFolders.run_query_folder, "qta.out.jsonl")
-    out_qta_run_file = r"c:\Data\ClickData_queries\TestResults\qta.out.jsonl"
-    #out_researcher_run_file = os.path.join(config.WorkFolders.run_query_folder, "researcher.out.jsonl")
-    out_researcher_run_file = r"c:\Data\ClickData_queries\TestResults\researcher.out.jsonl"
-    #script_run_queries = os.path.join(config.WorkFolders.run_query_folder, "run-QueryStatisticTests.bat")
-
-    #in_run_query_file_bf = os.path.join(config.WorkFolders.run_query_folder_bf, "queries.txt")
-    #out_researcher_run_file_bf = os.path.join(config.WorkFolders.run_query_folder_bf, "researcher.out.jsonl")
-    out_researcher_run_file_bf = r"c:\Data\ClickData_queries\TestResults_bf\researcher.out.jsonl"
-    #script_run_queries_bf = os.path.join(config.WorkFolders.run_query_folder_bf, "run-QueryStatisticTests.bat")
-
-    if not config.Scripts.skipRunTests:
-        # Clean up work folders
-        '''
-        for folder in [config.WorkFolders.run_query_folder, config.WorkFolders.run_query_folder_bf]:
-            if os.path.exists(folder):
-                shutil.rmtree(folder)
-            os.makedirs(folder, exist_ok=True)
-        '''
-
-        # Copy queries for tests
-        shutil.copyfile(queries_file_01, in_run_query_file)
-        shutil.copyfile(queries_file_01, in_run_query_file_bf)
-
-        # Run tests
-        #run_subprocess([script_run_queries], config.log_file)
-        #run_subprocess([script_run_queries_bf], config.log_file)
-
-        # Save query execution result
-        copy_result(out_researcher_run_file, executed_researcher, config.log_file)
-        copy_result(out_qta_run_file, executed_qta, config.log_file)
-        copy_result(out_researcher_run_file_bf, executed_researcher_bf, config.log_file)
-
-    write_info(f"(out files '{executed_researcher}', '{executed_qta}', '{executed_researcher_bf}')", config.log_file)
+    # 02 - run queries in ART test environment
+    executed_qta, executed_researcher, executed_researcher_bf = execute_tests(config,
+                                                                              period_from,
+                                                                              period_to,
+                                                                              run_date)
 
     # 03 - combine results
-    baseline_researcher = os.path.join(config.OutputPaths.baseline_folder,
-                                       f"baseline.researcher.{period_from}.{period_to}.{run_date}.jsonl.bz2")
-    baseline_qta = os.path.join(config.OutputPaths.baseline_folder,
-                                f"baseline.qta.{period_from}.{period_to}.{run_date}.jsonl.bz2")
-    baseline_researcher_bf = os.path.join(config.OutputPaths.baseline_folder,
-                                          f"baseline.researcherbf.{period_from}.{period_to}.{run_date}.jsonl.bz2")
-
-    script_get_documents = os.path.join(config.Scripts.scripts_folder, "get_documents.py")
-    combine_types = {
-        executed_researcher: baseline_researcher,
-        executed_qta: baseline_qta,
-        executed_researcher_bf: baseline_researcher_bf
-    }
-    for src, dst in combine_types.items():
-        run_subprocess([config.Scripts.python3, script_get_documents, last_adataset, src, dst], config.log_file)
-    write_info(f"(out files '{baseline_researcher}' and '{baseline_qta}')", config.log_file)
+    baseline_qta, baseline_researcher, baseline_researcher_bf = get_combined_results(config, executed_qta,
+                                                                                     executed_researcher,
+                                                                                     executed_researcher_bf,
+                                                                                     last_adataset, period_from,
+                                                                                     period_to, run_date)
 
     # 04 - create baseline
     script_create_baseline_html = os.path.join(config.Scripts.scripts_folder, "create_baseline_html.py")
@@ -239,12 +193,77 @@ def main():
     write_info("end", config.log_file)
 
 
-def get_queries_file(config, last_adataset, period_from, period_to):
+def get_combined_results(config, executed_qta, executed_researcher, executed_researcher_bf, last_adataset, period_from,
+                         period_to, run_date):
+    baseline_researcher = os.path.join(config.OutputPaths.baseline_folder,
+                                       f"baseline.researcher.{period_from}.{period_to}.{run_date}.jsonl.bz2")
+    baseline_qta = os.path.join(config.OutputPaths.baseline_folder,
+                                f"baseline.qta.{period_from}.{period_to}.{run_date}.jsonl.bz2")
+    baseline_researcher_bf = os.path.join(config.OutputPaths.baseline_folder,
+                                          f"baseline.researcherbf.{period_from}.{period_to}.{run_date}.jsonl.bz2")
+    script_get_documents = os.path.join(config.Scripts.scripts_folder, "get_documents.py")
+    combine_types = {
+        executed_researcher: baseline_researcher,
+        executed_qta: baseline_qta,
+        executed_researcher_bf: baseline_researcher_bf
+    }
+    for src, dst in combine_types.items():
+        run_subprocess([config.Scripts.python3, script_get_documents, last_adataset, src, dst], config.log_file)
+    write_info(f"(out files '{baseline_researcher}' and '{baseline_qta}')", config.log_file)
+    return baseline_qta, baseline_researcher, baseline_researcher_bf
+
+
+def execute_tests(config, period_from, period_to, run_date):
+    executed_qta = os.path.join(config.WorkFolders.out_tests_folder_2,
+                                f"qta.{period_from}.{period_to}.{run_date}.jsonl")
+    executed_researcher = os.path.join(config.WorkFolders.out_tests_folder_2,
+                                       f"researcher.{period_from}.{period_to}.{run_date}.jsonl")
+    executed_researcher_bf = os.path.join(config.WorkFolders.out_tests_folder_2,
+                                          f"researcherbf.{period_from}.{period_to}.{run_date}.jsonl")
+
+    if not config.Scripts.skipRunTests:
+        # Clean up work folders
+        '''
+        for folder in [config.WorkFolders.run_query_folder, config.WorkFolders.run_query_folder_bf]:
+            if os.path.exists(folder):
+                shutil.rmtree(folder)
+            os.makedirs(folder, exist_ok=True)
+        '''
+
+        # Copy queries for tests
+        #shutil.copyfile(queries_file_01,
+        #                os.path.join(config.WorkFolders.run_query_folder, "queries.txt"))
+        #shutil.copyfile(queries_file_01,
+        #                os.path.join(config.WorkFolders.run_query_folder_bf, "queries.txt"))
+
+        # Run tests
+        EnsureDir(executed_researcher)
+        run_subprocess([os.path.join(config.WorkFolders.run_query_folder, "run-QueryStatisticTests.bat")],
+                       config.log_file)
+        run_subprocess([os.path.join(config.WorkFolders.run_query_folder_bf, "run-QueryStatisticTests.bat")],
+                       config.log_file)
+
+        # Save query execution result
+        copy_result(os.path.join(config.WorkFolders.run_query_folder, "researcher.out.jsonl"),
+                    executed_researcher, config.log_file)
+        copy_result(os.path.join(config.WorkFolders.run_query_folder, "qta.out.jsonl"),
+                    executed_qta,
+                    config.log_file)
+        copy_result(os.path.join(config.WorkFolders.run_query_folder_bf, "researcherbf.out.jsonl"),
+                    executed_researcher_bf,
+                    config.log_file)
+    write_info(f"(out files '{executed_researcher}', '{executed_qta}', '{executed_researcher_bf}')", config.log_file)
+    return executed_qta, executed_researcher, executed_researcher_bf
+
+
+def prepare_queries_file(config, last_adataset, period_from, period_to):
     out_queries_file = os.path.join(config.WorkFolders.out_queries_folder_1, f"queries.{period_from}.{period_to}.txt")
     script_get_queries = os.path.join(config.Scripts.scripts_folder, "get_queries.py")
     EnsureDir(out_queries_file)
     run_subprocess([config.Scripts.python3, script_get_queries, last_adataset, out_queries_file], config.log_file)
     write_info(f"(out file '{out_queries_file}')", config.log_file)
+    shutil.copyfile(out_queries_file,
+                    os.path.join(config.WorkFolders.out_queries_folder_1, "queries.txt"))
     return out_queries_file
 
 
