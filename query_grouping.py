@@ -10,6 +10,7 @@ from .analyser import dump_cumulative_sammary
 from .accumulations import select_events_with_not_opened
 from .accumulations import collect_first_click
 import statistics
+import math
 from .accumulations import select_topmost_click_in_searches
 from .accumulations import calculate_click_through
 
@@ -275,7 +276,9 @@ if __name__ == "__main__":
     average_first_click = summarize_events(preprocessed_events, collect_first_click)
     median_value = statistics.median(average_first_click.values())
     average_value = statistics.mean(average_first_click.values())
-    print(median_value, average_value)
+    average_logarithmic = statistics.mean([math.log(x) for x in average_first_click.values()])
+    powered_average = math.exp(average_logarithmic)
+    print("median - {0}, average - {1}, logarithmic average {2}".format(median_value, average_value, powered_average))
 
 
 
