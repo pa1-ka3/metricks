@@ -1,18 +1,16 @@
 import argparse
-from .sort_click_data_files import get_sorted_files
-from .analyser import analyse_logfile, test_subaccounts, document_actions
-import json
-from .accumulations import preprocess_events
-from .analyser import summarize_events
-from .accumulations import collect_opened_documents_positions_distribution_in_searches_v2
-from .collections_helpers import add_simple_dictionaries
-from .analyser import dump_cumulative_sammary
-from .accumulations import select_events_with_not_opened
-from .accumulations import collect_first_click
-import statistics
 import math
-from .accumulations import select_topmost_click_in_searches
-from .accumulations import calculate_click_through
+import statistics
+from .analyser import analyse_logfile, test_subaccounts
+from .analyser import summarize_events
+from .analyser import dump_cumulative_sammary
+from .accumulations import preprocess_events
+from .accumulations import collect_opened_documents_positions_distribution_in_searches_v2
+from .accumulations import select_topmost_click_in_searches, calculate_click_through, collect_first_click
+from .accumulations import select_events_with_not_opened, filter_extra_actions_only
+from .collections_helpers import add_simple_dictionaries
+from .constants import document_query, document_actions, doc_extra_actions
+from .sort_click_data_files import get_sorted_files
 
 
 session_id_filter = "sessionid"
@@ -125,6 +123,22 @@ def save_suspicious_queries(events, outputFile):
             save_line(outfile, session, whole_value)
 
 
+def clear_last_query_id(events):
+    for session_id in events.keys():
+        if isinstance(events[session_id], dict):
+            events[session_id].pop("last_query_id", None)
+    return events
+
+
+def flatten_sets_to_lists(events):
+    for session_id in events.keys():
+        if isinstance(events[session_id], dict):
+            for query_id in events[session_id].keys():
+                if isinstance(events[session_id][query_id], set):
+                    events[session_id][query_id] = list(events[session_id][query_id])
+    return events
+
+
 def get_document_queries(acc, event_description):
     """
     Get queries
@@ -166,20 +180,22 @@ def get_document_queries(acc, event_description):
         return acc
 
     event_name = payload["eventname"]
-    if event_name not in document_actions:
+    if not ((event_name in document_actions) or (event_name in doc_extra_actions) or (event_name in document_query)):
         return acc
 
     search_reference = payload.get("searchreference", "None")
 
     if "queryid" not in payload:
-        return acc
-    # use already prepared event_name
+        try:
+            query_id = acc[session_id]["last_query_id"]
+        except KeyError:
+            return acc
+    else:
+        query_id = payload["queryid"]
+        if query_id is None:
+            query_id = "None"
 
-    query_id = payload["queryid"]
-    if query_id is None:
-        query_id = "None"
-
-    query_id = "{0} {1} {2}".format(query_id, subaccount_id, user_id)
+        query_id = "{0} {1} {2}".format(query_id, subaccount_id, user_id)
 
     query_text = payload.get("query", "None")
     if event_name == "query" and search_reference == "qt":
@@ -198,6 +214,7 @@ def get_document_queries(acc, event_description):
             acc[session_id][query_id].append(event_data)
         else:
             acc[session_id][query_id].append(event_data)
+    acc[session_id]["last_query_id"] = query_id  # to help store events without 'search query id'
 
     return acc
 
@@ -230,12 +247,20 @@ if __name__ == "__main__":
     for file in files:
         events = analyse_logfile(file, events, get_document_queries)
 
+    events = clear_last_query_id(events)
+    #events = flatten_sets_to_lists(events)
     save_events_file(events, outputFile+'.txt')
+
+
 
     # Distribute "qta" events to the nearest "re" searches
     preprocessed_events = summarize_events(events, preprocess_events)
     save_events_file(preprocessed_events, outputFile + 'prepr.txt')
     save_events_file(preprocessed_events, outputFile + 'prepr_massive_events.txt', events_min_count=5)
+
+    # find sessions with doc_extra_actions but no document_actions
+    extra_events = summarize_events(preprocessed_events, filter_extra_actions_only)
+    save_events_file(extra_events, outputFile + '_extra_events.txt')
 
     # Collect opened links distribution in searches
     #  {searches_count: {opened_links_count: count}}
@@ -255,22 +280,40 @@ if __name__ == "__main__":
     topmost_clicks = summarize_events(preprocessed_events, select_topmost_click_in_searches)
     save_events_file(topmost_clicks, outputFile + '_topmost_clicks.txt')
     CTR_at_0 = calculate_click_through(topmost_clicks, 0)
-    print("CTR@0: ", CTR_at_0)
+    output_strings = []
+    out_str = "CTR@0: {0}\n".format(CTR_at_0)
+    print(out_str)
+    output_strings.append(out_str)
+
     CTR_at_1 = calculate_click_through(topmost_clicks, 1)
-    print("CTR@1: ", CTR_at_1)
+    out_str = "CTR@1: {0}\n".format(CTR_at_1)
+    print(out_str)
+    output_strings.append(out_str)
+
     CTR_at_10 = calculate_click_through(topmost_clicks, 10)
-    print("CTR@10: ", CTR_at_10)
+    out_str = "CTR@10: {0}\n".format(CTR_at_10)
+    print(out_str)
+    output_strings.append(out_str)
+
     CTR_at_100 = calculate_click_through(topmost_clicks, 100)
-    print("CTR@100: ", CTR_at_100)
+    out_str = "CTR@100: {0}\n".format(CTR_at_100)
+    print(out_str)
+    output_strings.append(out_str)
 
     CTR = calculate_click_through(topmost_clicks, 9998)
-    print("CTR: ", CTR)
+    out_str = "CTR: {0}\n".format(CTR)
+    print(out_str)
+    output_strings.append(out_str)
 
     Non_Click_Rate = 1.0 - CTR['click_through_rate']
-    print("Non_Click_Rate: ", Non_Click_Rate)
+    out_str = "Non_Click_Rate: {0}\n".format(Non_Click_Rate)
+    print(out_str)
+    output_strings.append(out_str)
 
     total_searches = sum([len(value) for value in topmost_clicks.values()])
-    print("Total searches: ", total_searches)
+    out_str = "Total searches: {0}\n".format(total_searches)
+    print(out_str)
+    output_strings.append(out_str)
 
     # Average First Click Rank (Average position of the first click)
     average_first_click = summarize_events(preprocessed_events, collect_first_click)
@@ -278,7 +321,15 @@ if __name__ == "__main__":
     average_value = statistics.mean(average_first_click.values())
     average_logarithmic = statistics.mean([math.log(x) for x in average_first_click.values()])
     powered_average = math.exp(average_logarithmic)
-    print("median - {0}, average - {1}, logarithmic average {2}".format(median_value, average_value, powered_average))
+    out_str = "median - {0}, average - {1}, logarithmic average {2}\n".format(median_value,
+                                                                              average_value,
+                                                                              powered_average)
+    print(out_str)
+    output_strings.append(out_str)
+
+    with open(outputFile + '_summary.txt', 'w', encoding='utf-8') as outFile:
+        for line in output_strings:
+            outFile.write(line)
 
 
 

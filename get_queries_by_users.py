@@ -18,9 +18,10 @@ import argparse
 import json
 import sys
 from .sort_click_data_files import get_sorted_files
-from .analyser import analyse_logfile, test_subaccounts, document_actions
+from .analyser import analyse_logfile, test_subaccounts
 from .query_grouping import save_events_file
 from collections import defaultdict
+from .constants import document_actions
 
 
 def get_document_queries(acc, event_description):

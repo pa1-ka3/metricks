@@ -54,7 +54,6 @@ def analyse_event(acc, line_text, analyser_function=None):
         return acc
 
 
-document_actions = ["query", "documentvieweropened", "documentviewed", "queryaction", "downloadpdf"]
 test_subaccounts = ['9988776', '9999997', '9999998', '2323232', '2800000', '0707070', '1111111', '2222123',
                     '2222222', '3333333', '4444444']
 

@@ -1,4 +1,5 @@
 from .collections_helpers import merge_counts_dictionaries
+from .constants import document_actions, doc_extra_actions
 import queue
 
 
@@ -269,7 +270,7 @@ def separate_qta_searches(searches):
     qta_q = None
     q = queue.Queue()
     for searchid, search in searches.items():
-        if searchid.startswith('0 '):
+        if searchid.startswith('0 '):  # QTA search session id starts with '0 '
             qta_search = search
         else:
             q.put((searchid, search))
@@ -402,7 +403,7 @@ def select_topmost_click_in_searches(accumulations, session_description):
 
     Returns:
         dict: The updated accumulations dictionary. looks like  { search_id : topmost_click}
-        in case no document was clicked - zero position {search_id : 0}
+        in case no document was clicked - 9999 position {search_id : 9999}
     """
     if not isinstance(session_description, tuple):
         return accumulations
@@ -425,6 +426,19 @@ def select_topmost_click_in_searches(accumulations, session_description):
             if click_position_label.isdigit():
                 click_position = int(click_position_label)
                 topmost_click = min(topmost_click, click_position)
+
+        if topmost_click == 9999:
+            # there was no active click found, should check for extra actions
+            for event in events:
+                if not isinstance(event, tuple):
+                    continue
+                if event[1] is None:
+                    continue
+                if event[1] == '':
+                    continue
+                if event[0] in doc_extra_actions:
+                    topmost_click = 1
+                    break
 
         topmost_clicks[searchid] = topmost_click
 
@@ -479,6 +493,7 @@ def collect_first_click(accumulations, session_description):
         print(f"Error processing first click: {first_click}, error: {e}")
     return accumulations
 
+
 def calculate_click_through(accumulations, position_threshold):
     """
     Calculate click-through rate based on topmost click positions.
@@ -510,3 +525,27 @@ def calculate_click_through(accumulations, position_threshold):
     result['total_clicks'] = total_clicks
 
     return result
+
+
+def filter_extra_actions_only(accumulations, session_description):
+    """
+    Keep sessions with extra actions only (linksaved, bookmarked etc).
+
+    Args:
+        accumulations (dict): The dictionary to store accumulated statistics.
+        session_description (tuple): The session description tuple.
+
+    Returns:
+        dict: The updated accumulations dictionary.
+    """
+    if not isinstance(session_description, tuple):
+        return accumulations
+
+    for searchid, events in session_description[1].items():
+        for event in events:
+            if event[0] in document_actions:
+                return accumulations
+
+    # the rest should be extra actions only
+    accumulations[session_description[0]] = session_description[1]
+    return accumulations
