@@ -130,15 +130,6 @@ def clear_last_query_id(events):
     return events
 
 
-def flatten_sets_to_lists(events):
-    for session_id in events.keys():
-        if isinstance(events[session_id], dict):
-            for query_id in events[session_id].keys():
-                if isinstance(events[session_id][query_id], set):
-                    events[session_id][query_id] = list(events[session_id][query_id])
-    return events
-
-
 def get_document_queries(acc, event_description):
     """
     Get queries

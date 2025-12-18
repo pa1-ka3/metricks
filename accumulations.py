@@ -422,10 +422,14 @@ def select_topmost_click_in_searches(accumulations, session_description):
             if event[1] == '':
                 continue
 
-            click_position_label = event[1].split('-')[1]
-            if click_position_label.isdigit():
-                click_position = int(click_position_label)
-                topmost_click = min(topmost_click, click_position)
+            try:
+                click_position_label = event[1].split('-')[1]
+                if click_position_label.isdigit():
+                    click_position = int(click_position_label)
+                    topmost_click = min(topmost_click, click_position)
+            except Exception as e:
+                print(f"Error processing event: {event}, error: {e}")
+                continue
 
         if topmost_click == 9999:
             # there was no active click found, should check for extra actions
