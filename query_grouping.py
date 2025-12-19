@@ -103,7 +103,7 @@ def format_event_descr(event_descr):
 
 
 def save_suspicious_queries(events, outputFile):
-        # Print the event chains
+    # Print the event chains
     with open(outputFile, "w", encoding='utf-8') as outfile:
         for session, values in events.items():
             if isinstance(values, dict):
@@ -239,15 +239,12 @@ if __name__ == "__main__":
         events = analyse_logfile(file, events, get_document_queries)
 
     events = clear_last_query_id(events)
-    #events = flatten_sets_to_lists(events)
     save_events_file(events, outputFile+'.txt')
-
-
 
     # Distribute "qta" events to the nearest "re" searches
     preprocessed_events = summarize_events(events, preprocess_events)
     save_events_file(preprocessed_events, outputFile + 'prepr.txt')
-    save_events_file(preprocessed_events, outputFile + 'prepr_massive_events.txt', events_min_count=5)
+    save_events_file(preprocessed_events, outputFile + 'prepr_massive_events.txt', events_min_count=30)
 
     # find sessions with doc_extra_actions but no document_actions
     extra_events = summarize_events(preprocessed_events, filter_extra_actions_only)

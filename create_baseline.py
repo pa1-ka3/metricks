@@ -6,6 +6,8 @@ import subprocess
 import datetime
 import smtplib
 from email.mime.text import MIMEText
+from MRR_EWB.get_documents import get_combined_documents
+from MRR_EWB.create_baseline_html import calculate_metrics
 
 
 def EnsureDir(f):
@@ -72,7 +74,7 @@ class ConfigDev(BaseConfig):
         python2 = r"c:\Python27\python.exe"
         python3 = r"c:\Projects\Content.Scripts\patents_clickdata\gf-content.scripts.patent\gfrscripts\click-data\venv\Scripts\python.exe"
         scripts_folder = r"C:\Projects\Content.Scripts\patents_clickdata\gf-content.scripts.patent\gfrscripts\click-data\click_analyzer\MRR_EWB"
-        skipRunTests = False
+        skipRunTests = True
 
     class WorkFolders:
         run_query_folder = r"d:\gf-goldfire.test.art.runner_metrik1\search-quality"
@@ -82,7 +84,7 @@ class ConfigDev(BaseConfig):
         out_baseline_folder_3 = r"c:\Data\ClickData_work\3"
 
     class InputPaths:
-        in_adataset_folder = r"c:\Data\ClickData_queries\popular-docs"
+        in_adataset_folder = r"c:\Data\ClickData_work\popular-docs"
         filter_adataset = "adataset.*.*.json"
 
     class OutputPaths:
@@ -132,7 +134,7 @@ def run_subprocess(args, log_file):
 
 
 def main():
-    config = ConfigDenver
+    config = ConfigDev
 
     if not os.path.exists(config.log_file):
         open(config.log_file, "w").close()
@@ -156,7 +158,7 @@ def main():
     write_info(f"(last adataset: '{last_adataset}' )", config.log_file)
 
     # 01 - get queries from adataset
-    prepare_queries_file(config, last_adataset, period_from, period_to)
+    # prepare_queries_file(config, last_adataset, period_from, period_to)
 
     # 02 - run queries in ART test environment
     executed_qta, executed_researcher, executed_researcher_bf = execute_tests(config)
@@ -197,8 +199,9 @@ def create_html(baseline_qta, baseline_researcher, baseline_researcher_bf, confi
     for name, path in baseline_types.items():
         out_html = os.path.join(config.OutputPaths.baseline_folder,
                                 f"{name}.{period_from}.{period_to}.{run_date}")
-        run_subprocess([config.Scripts.python3, script_create_baseline_html, path, out_html],
-                       config.log_file)
+        calculate_metrics(path, out_html)
+        #run_subprocess([config.Scripts.python3, script_create_baseline_html, path, out_html],
+        #               config.log_file)
 
 
 def get_combined_results(config, executed_qta, executed_researcher, executed_researcher_bf, last_adataset, period_from,
@@ -216,8 +219,7 @@ def get_combined_results(config, executed_qta, executed_researcher, executed_res
         executed_researcher_bf: baseline_researcher_bf
     }
     for src, dst in combine_types.items():
-        run_subprocess([config.Scripts.python3, script_get_documents, last_adataset, src, dst],
-                       config.log_file)
+        get_combined_documents(last_adataset, src, dst)
     write_info(f"(out files '{baseline_researcher}' and '{baseline_qta}')",
                config.log_file)
 

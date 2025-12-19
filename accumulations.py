@@ -428,7 +428,6 @@ def select_topmost_click_in_searches(accumulations, session_description):
                     click_position = int(click_position_label)
                     topmost_click = min(topmost_click, click_position)
             except Exception as e:
-                print(f"Error processing event: {event}, error: {e}")
                 continue
 
         if topmost_click == 9999:
