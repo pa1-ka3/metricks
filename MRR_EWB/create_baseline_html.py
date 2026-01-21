@@ -47,3 +47,9 @@ def calculate_metrics(in_file, out_file):
 
     print('\n---data---\n')
     print(data)
+
+    ret = {}
+    ret["MRR10"] = metrics["MRR"][9]
+    ret["NDCG10"] = metrics["NDCG"][9]
+    return ret
+

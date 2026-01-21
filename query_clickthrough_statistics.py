@@ -1,6 +1,7 @@
 import argparse
 import math
 import statistics
+import tqdm
 from .analyser import analyse_logfile, test_subaccounts
 from .analyser import summarize_events
 from .analyser import dump_cumulative_sammary
@@ -210,45 +211,25 @@ def get_document_queries(acc, event_description):
     return acc
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--clickPath", help="points to click-data location")
-    parser.add_argument("--outputFile", help="points to file with results")
-    parser.add_argument("--sessionid", help="sessionid to filter events by session ID, default is 'sessionid'")
-    parser.add_argument("--userid", help="filter sessions only for this userID")
-    args = parser.parse_args()
+def main(click_path, output_file, session_id_filter=None, user_id_filter=None):
 
-    if args.clickPath is None:
-        exit("No clickPath provided")
-    clickPath = args.clickPath
-
-    if args.outputFile is None:
-        exit("No outputFile provided")
-    outputFile = args.outputFile
-
-    if args.sessionid is not None:
-        session_id_filter = args.sessionid
-
-    if args.userid is not None:
-        user_id_filter = int(args.userid)
-
-    files = get_sorted_files(clickPath)
+    files = get_sorted_files(click_path)
 
     events = {}   # accumulator for raw statistics
-    for file in files:
+    for file in tqdm.tqdm(files):
         events = analyse_logfile(file, events, get_document_queries)
 
     events = clear_last_query_id(events)
-    save_events_file(events, outputFile+'.txt')
+    save_events_file(events, output_file + '.txt')
 
     # Distribute "qta" events to the nearest "re" searches
     preprocessed_events = summarize_events(events, preprocess_events)
-    save_events_file(preprocessed_events, outputFile + 'prepr.txt')
-    save_events_file(preprocessed_events, outputFile + 'prepr_massive_events.txt', events_min_count=30)
+    save_events_file(preprocessed_events, output_file + 'prepr.txt')
+    save_events_file(preprocessed_events, output_file + 'prepr_massive_events.txt', events_min_count=30)
 
     # find sessions with doc_extra_actions but no document_actions
     extra_events = summarize_events(preprocessed_events, filter_extra_actions_only)
-    save_events_file(extra_events, outputFile + '_extra_events.txt')
+    save_events_file(extra_events, output_file + '_extra_events.txt')
 
     # Collect opened links distribution in searches
     #  {searches_count: {opened_links_count: count}}
@@ -259,14 +240,14 @@ if __name__ == "__main__":
     for key, description in opened_links_distribution.items():
         add_simple_dictionaries(opened_links_distribution_cumulative, description)
 
-    dump_cumulative_sammary(outputFile, opened_links_distribution_cumulative)
+    dump_cumulative_sammary(output_file, opened_links_distribution_cumulative)
 
     events_with_not_opened = summarize_events(events, select_events_with_not_opened)
-    save_events_file(events_with_not_opened, outputFile + 'not_found.txt')
+    save_events_file(events_with_not_opened, output_file + 'not_found.txt')
 
     # CTR (Click-Through Rate), CTR@K, Non-Click Rate
     topmost_clicks = summarize_events(preprocessed_events, select_topmost_click_in_searches)
-    save_events_file(topmost_clicks, outputFile + '_topmost_clicks.txt')
+    save_events_file(topmost_clicks, output_file + '_topmost_clicks.txt')
     CTR_at_0 = calculate_click_through(topmost_clicks, 0)
     output_strings = []
     out_str = "CTR@0: {0}\n".format(CTR_at_0)
@@ -297,7 +278,6 @@ if __name__ == "__main__":
     out_str = "Non_Click_Rate: {0}\n".format(Non_Click_Rate)
     print(out_str)
     output_strings.append(out_str)
-
     total_searches = sum([len(value) for value in topmost_clicks.values()])
     out_str = "Total searches: {0}\n".format(total_searches)
     print(out_str)
@@ -315,9 +295,49 @@ if __name__ == "__main__":
     print(out_str)
     output_strings.append(out_str)
 
-    with open(outputFile + '_summary.txt', 'w', encoding='utf-8') as outFile:
+    with open(output_file + '_summary.txt', 'w', encoding='utf-8') as outFile:
         for line in output_strings:
             outFile.write(line)
+
+    calculated_statistics = {
+        "CTR@0": CTR_at_0,
+        "CTR@1": CTR_at_1,
+        "CTR@10": CTR_at_10,
+        "CTR@100": CTR_at_100,
+        "CTR": CTR,
+        "Non_Click_Rate": Non_Click_Rate,
+        "Total_searches": total_searches,
+        "Average_First_Click_median": median_value,
+        "Average_First_Click_average": average_value,
+        "Average_First_Click_logarithmic_average": powered_average
+    }
+    return calculated_statistics
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--clickPath", help="points to click-data location")
+    parser.add_argument("--outputFile", help="points to file with results")
+    parser.add_argument("--sessionid", help="sessionid to filter events by session ID, default is 'sessionid'")
+    parser.add_argument("--userid", help="filter sessions only for this userID")
+    args = parser.parse_args()
+
+    if args.clickPath is None:
+        exit("No clickPath provided")
+    clickPath = args.clickPath
+
+    if args.outputFile is None:
+        exit("No outputFile provided")
+    outputFile = args.outputFile
+
+    if args.sessionid is not None:
+        session_id_filter = args.sessionid
+
+    user_id_filter = None
+    if args.userid is not None:
+        user_id_filter = int(args.userid)
+
+    main(clickPath, outputFile, session_id_filter, user_id_filter)
 
 
 
