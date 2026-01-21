@@ -6,8 +6,8 @@ import subprocess
 import datetime
 import smtplib
 from email.mime.text import MIMEText
-from MRR_EWB.get_documents import get_combined_documents
-from MRR_EWB.create_baseline_html import calculate_metrics
+from .MRR_EWB.get_documents import get_combined_documents
+from .MRR_EWB.create_baseline_html import calculate_metrics
 
 
 def EnsureDir(f):
@@ -134,7 +134,7 @@ def run_subprocess(args, log_file):
 
 
 def main():
-    config = ConfigDev
+    config = ConfigDenver
 
     if not os.path.exists(config.log_file):
         open(config.log_file, "w").close()
@@ -158,10 +158,13 @@ def main():
     write_info(f"(last adataset: '{last_adataset}' )", config.log_file)
 
     # 01 - get queries from adataset
-    # prepare_queries_file(config, last_adataset, period_from, period_to)
+    prepare_queries_file(config, last_adataset, period_from, period_to)
 
     # 02 - run queries in ART test environment
-    executed_qta, executed_researcher, executed_researcher_bf = execute_tests(config)
+    executed_qta, executed_researcher, executed_researcher_bf = execute_tests(config,
+                                                                              period_from,
+                                                                              period_to,
+                                                                              run_date)
 
     # 03 - combine results
     baseline_qta, baseline_researcher, baseline_researcher_bf = get_combined_results(config, executed_qta,
@@ -171,8 +174,14 @@ def main():
                                                                                      period_to, run_date)
 
     # 04 - create baseline
-    create_html(baseline_qta, baseline_researcher, baseline_researcher_bf, config, last_adataset, period_from,
-                period_to, run_date)
+    result = create_html(baseline_qta,
+                         baseline_researcher,
+                         baseline_researcher_bf,
+                         config,
+                         last_adataset,
+                         period_from,
+                         period_to,
+                         run_date)
 
     # 05 - insert baseline to elasticsearch
     '''
@@ -184,6 +193,7 @@ def main():
         run_subprocess([config.Scripts.python2, script_insert_baseline_to_elk, json_file, source_type, period_from, period_to, run_date_time], config.log_file)
     '''
     write_info("end", config.log_file)
+    return result
 
 
 def create_html(baseline_qta, baseline_researcher, baseline_researcher_bf, config, last_adataset, period_from,
@@ -193,15 +203,19 @@ def create_html(baseline_qta, baseline_researcher, baseline_researcher_bf, confi
     baseline_types = {
         "researcher": baseline_researcher,
         "qta": baseline_qta,
-        "dataset": last_adataset + ".bz2",
-        "researcherbf": baseline_researcher_bf
+        "dataset": last_adataset + ".bz2" #,
+        #"researcherbf": baseline_researcher_bf
     }
+    results = {}
     for name, path in baseline_types.items():
+        if path is None:
+            continue
         out_html = os.path.join(config.OutputPaths.baseline_folder,
                                 f"{name}.{period_from}.{period_to}.{run_date}")
-        calculate_metrics(path, out_html)
+        results[name] = calculate_metrics(path, out_html)
         #run_subprocess([config.Scripts.python3, script_create_baseline_html, path, out_html],
         #               config.log_file)
+    return results
 
 
 def get_combined_results(config, executed_qta, executed_researcher, executed_researcher_bf, last_adataset, period_from,
@@ -215,8 +229,8 @@ def get_combined_results(config, executed_qta, executed_researcher, executed_res
     script_get_documents = os.path.join(config.Scripts.scripts_folder, "get_documents.py")
     combine_types = {
         executed_researcher: baseline_researcher,
-        executed_qta: baseline_qta,
-        executed_researcher_bf: baseline_researcher_bf
+        executed_qta: baseline_qta #,
+        # executed_researcher_bf: baseline_researcher_bf
     }
     for src, dst in combine_types.items():
         get_combined_documents(last_adataset, src, dst)
@@ -226,7 +240,7 @@ def get_combined_results(config, executed_qta, executed_researcher, executed_res
     return baseline_qta, baseline_researcher, baseline_researcher_bf
 
 
-def execute_tests(config):
+def execute_tests(config, period_from, period_to, run_date):
 
     executed_qta = os.path.join(config.WorkFolders.out_tests_folder_2, "qta.out.jsonl")
     executed_researcher = os.path.join(config.WorkFolders.out_tests_folder_2, "researcher.out.jsonl")
@@ -244,8 +258,8 @@ def execute_tests(config):
         EnsureDir(executed_researcher)
         run_subprocess([os.path.join(config.WorkFolders.run_query_folder, "run-QueryStatisticTests.bat")],
                        config.log_file)
-        run_subprocess([os.path.join(config.WorkFolders.run_query_folder_bf, "run-QueryStatisticTests.bat")],
-                       config.log_file)
+        # run_subprocess([os.path.join(config.WorkFolders.run_query_folder_bf, "run-QueryStatisticTests.bat")],
+        #               config.log_file)
 
     write_info(f"(out files '{executed_researcher}', '{executed_qta}', '{executed_researcher_bf}')",
                config.log_file)
@@ -267,5 +281,10 @@ def prepare_queries_file(config, last_adataset, period_from, period_to):
     return out_queries_file
 
 
+def test_calculate_metrics(baseline_researcher, out_html):
+    return calculate_metrics(baseline_researcher, out_html)
+
+
 if __name__ == "__main__":
-    main()
+    result = main()
+
