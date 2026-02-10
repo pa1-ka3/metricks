@@ -3,11 +3,11 @@ from dateutil.relativedelta import *
 from .sort_click_data_files import get_sorted_dirs, get_sorted_paths
 
 
-def get_dirs_week_period(period_end, period_start, input_click_path_base):
+def get_dirs_week_period(period_start, period_end, input_click_path_base):
     """
     Get the directories for the week period (from previous Sunday to the last Saturday) based on the given date.
-    :param period_end:
     :param period_start:
+    :param period_end:
     :param input_click_path_base:
     :return: sorted list of directories
     """
@@ -46,7 +46,7 @@ def get_period_boundaries(today):
     print(period_end)
     period_start = period_end - relativedelta(days=7)
     print(period_start)
-    return period_end, period_start
+    return period_start, period_end
 
 
 def is_interval_starter(period_start_data, dir_name):
@@ -100,8 +100,8 @@ if __name__ == "__main__":
     #input_click_path_base = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\prod"
     #day = datetime.datetime(year=2025, month=8, day=9)
     input_click_path_base = r"c:\Data\ClickData_2025"
-    period_end, period_start = get_period_boundaries(day)
-    dirs = get_dirs_week_period(period_end, period_start, input_click_path_base)  # just for test
+    period_start, period_end = get_period_boundaries(day)
+    dirs = get_dirs_week_period(period_start, period_end, input_click_path_base)  # just for test
     files = get_sorted_paths(dirs)
     # Print the sorted paths
     print('---------------')

@@ -114,8 +114,8 @@ if __name__ == "__main__":
 
     input_click_path_base = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\prod"
     day = datetime.datetime.today()
-    period_end, period_start = get_period_boundaries(day)
-    dirs = get_dirs_week_period(period_end, period_start, input_click_path_base)
+    period_start, period_end = get_period_boundaries(day)
+    dirs = get_dirs_week_period(period_start, period_end, input_click_path_base)
     click_data_files = get_sorted_paths(dirs)
 
     output_path = r"d:\content-team\click-data\Work\0\events"
