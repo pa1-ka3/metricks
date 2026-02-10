@@ -1,33 +1,35 @@
 import csv
-from datetime import datetime, timedelta
+import datetime
 import os
 import shutil
-from .query_clickthrough_statistics import main as query_statistics_main
+from .query_clickthrough_statistics import main_statistics as query_statistics_main
 from .create_baseline import main as calculate_mrr_ndcg_metrics
+from .files_selector import get_dirs_week_period
+from .sort_click_data_files import get_sorted_paths
 
 
-def update_statistics_csv(statistics_file: str, metrics_file: str, output_csv: str):
+def update_statistics_csv(statistics_file: str, metrics_file: str, output_csv: str, processing_data: str):
 
     with open(statistics_file, mode='r') as fs:
         reader = csv.DictReader(fs)
         statistics = {}
         for row in reader:
-            statistics['CTR1'] = float(row['CTR1'])
-            statistics['CTR10'] = float(row['CTR10'])
-            statistics['CTR100'] = float(row['CTR100'])
-            statistics['Non-Click'] = float(row['Non-Click'])
+            statistics['CTR1'] = round(float(row['CTR1']), 3)
+            statistics['CTR10'] = round(float(row['CTR10']), 3)
+            statistics['CTR100'] = round(float(row['CTR100']), 3)
+            statistics['Non-Click'] = round(float(row['Non-Click']), 3)
 
     with open(metrics_file, mode='r') as fm:
         reader1 = csv.DictReader(fm)
         metrics = {}
         for row in reader1:
-            metrics['MRR10'] = float(row['MRR10'])
-            metrics['NDCG10'] = float(row['NDCG10'])
+            metrics['MRR10'] = round(float(row['MRR10']), 3)
+            metrics['NDCG10'] = round(float(row['NDCG10']), 3)
 
-    statistics['Data'] = get_previous_month_last_day()
+    statistics['Data'] = processing_data
     try:
-        statistics['MRR10'] = round(metrics['MRR10'], 3)
-        statistics['NDCG10'] = round(metrics['NDCG10'], 3)
+        statistics['MRR10'] = metrics['MRR10']
+        statistics['NDCG10'] = metrics['NDCG10']
     except KeyError:
         statistics['MRR10'] = 0
         statistics['NDCG10'] = 0
@@ -53,9 +55,9 @@ def get_previous_month_last_day():
 
 
 def get_last_day_prev_month():
-    today = datetime.today()
+    today = datetime.datetime.today()
     first_day_of_current_month = today.replace(day=1)
-    last_day_of_previous_month = first_day_of_current_month - timedelta(days=1)
+    last_day_of_previous_month = first_day_of_current_month - datetime.timedelta(days=1)
     return last_day_of_previous_month
 
 
@@ -88,22 +90,21 @@ if __name__ == "__main__":
     clean_work_folders()
 
     input_click_path_base = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\prod"
-    prev_month = get_previous_month()
-    input_click_path = input_click_path_base + '\\' + prev_month
+    day = datetime.datetime.today()
+    dirs = get_dirs_week_period(day, input_click_path_base)
+    click_data_files = get_sorted_paths(dirs)
+
     output_path = r"d:\content-team\click-data\Work\0\events"
-
-    statistics_file = r"d:\content-team\click-data\Work\5\statistics.csv"
-    metrics_file = r"d:\content-team\click-data\Work\5\metrics.csv"
-
-    query_stat = query_statistics_main(click_path=input_click_path, output_file=output_path)
+    query_stat = query_statistics_main(files=click_data_files, output_file=output_path)
 
     stat = {}
-    stat['CTR1'] = query_stat['CTR@1']
-    stat['CTR10'] = query_stat['CTR@10']
-    stat['CTR100'] = query_stat['CTR@100']
-    stat['Non-Click'] = query_stat['Non-Click']
+    stat['CTR1'] = query_stat['CTR@1']['click_through_rate']
+    stat['CTR10'] = query_stat['CTR@10']['click_through_rate']
+    stat['CTR100'] = query_stat['CTR@100']['click_through_rate']
+    stat['Non-Click'] = query_stat['Non_Click_Rate']
 
     fields = ['CTR1', 'CTR10', 'CTR100', 'Non-Click']
+    statistics_file = r"d:\content-team\click-data\Work\5\statistics.csv"
     write_statistics(stat, statistics_file, fields)
     
     metrics_raw = calculate_mrr_ndcg_metrics()
@@ -111,12 +112,15 @@ if __name__ == "__main__":
     metrics['MRR10'] = metrics_raw['researcher']['MRR10']
     metrics['NDCG10'] = metrics_raw['researcher']['NDCG10']
     fields = ['MRR10', 'NDCG10']
-    
+
+    metrics_file = r"d:\content-team\click-data\Work\5\metrics.csv"
     write_statistics(metrics, metrics_file, fields)
     
     output_csv = r"d:\content-team\click-data\Work\metrics\metrics_report.csv"
-    update_statistics_csv(statistics_file, metrics_file,
-                          output_csv=output_csv)
+    update_statistics_csv(statistics_file,
+                          metrics_file,
+                          output_csv=output_csv,
+                          processing_data=day.strftime("%Y-%m-%d"))
 
     target_path = r"c:\agent\data\metrics_report.csv"
     shutil.copyfile(output_csv, target_path)

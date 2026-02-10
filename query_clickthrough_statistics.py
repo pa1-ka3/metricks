@@ -212,9 +212,11 @@ def get_document_queries(acc, event_description):
 
 
 def main(click_path, output_file, session_id_filter=None, user_id_filter=None):
-
     files = get_sorted_files(click_path)
+    return main_statistics(files, output_file, session_id_filter, user_id_filter)
 
+
+def main_statistics(files, output_file, session_id_filter=None, user_id_filter=None):
     events = {}   # accumulator for raw statistics
     for file in tqdm.tqdm(files):
         events = analyse_logfile(file, events, get_document_queries)

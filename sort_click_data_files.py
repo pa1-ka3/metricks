@@ -16,18 +16,12 @@ def test_sorter():
 
 def directories_sorter(root_path):
 
-    dirs = [d for d in os.scandir(root_path)]
-    sorted_dirs = []
-    try:
-        # Sort the directories based on the date in the directory name
-        sorted_dirs = sorted(dirs, key=lambda x: (
-            x.name.split('.')[4],
-            x.name.split('.')[5],
-            x.name.split('.')[6])
-                             )
-    except IndexError as e:
-        print("IndexError: {0}".format(e))
+    sorted_dirs = get_sorted_dirs(root_path)
 
+    return get_sorted_paths(sorted_dirs)
+
+
+def get_sorted_paths(sorted_dirs):
     paths = []
     for direntry in sorted_dirs:
         # print("dirname: {0}".format(dirname))
@@ -40,8 +34,22 @@ def directories_sorter(root_path):
                 path = os.path.join(root, filename)
                 print(path)
                 paths.append(path)
-
     return paths
+
+
+def get_sorted_dirs(root_path):
+    dirs = [d for d in os.scandir(root_path)]
+    sorted_dirs = []
+    try:
+        # Sort the directories based on the date in the directory name
+        sorted_dirs = sorted(dirs, key=lambda x: (
+            x.name.split('.')[4],
+            x.name.split('.')[5],
+            x.name.split('.')[6])
+                             )
+    except IndexError as e:
+        print("IndexError: {0}".format(e))
+    return sorted_dirs
 
 
 def get_sorted_files(root_path):

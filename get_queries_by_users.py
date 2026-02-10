@@ -19,7 +19,7 @@ import json
 import sys
 from .sort_click_data_files import get_sorted_files
 from .analyser import analyse_logfile, test_subaccounts
-from .query_grouping import save_events_file
+from .query_clickthrough_statistics import save_events_file
 from collections import defaultdict
 from .constants import document_actions
 
@@ -66,7 +66,8 @@ def get_document_queries(acc, event_description):
         return acc
 
     event_name = payload["eventname"]
-    if event_name not in document_actions:
+    #if event_name not in document_actions:
+    if event_name != "query":
         return acc
 
     search_reference = payload.get("searchreference", "None")
