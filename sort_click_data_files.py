@@ -38,6 +38,10 @@ def get_sorted_paths(sorted_dirs):
 
 
 def get_sorted_dirs(root_path):
+    if not os.path.exists(root_path):
+        print("Directory does not exist: {0}".format(root_path))
+        return []
+
     dirs = [d for d in os.scandir(root_path)]
     sorted_dirs = []
     try:

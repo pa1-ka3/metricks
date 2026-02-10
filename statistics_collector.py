@@ -4,7 +4,7 @@ import os
 import shutil
 from .query_clickthrough_statistics import main_statistics as query_statistics_main
 from .create_baseline import main as calculate_mrr_ndcg_metrics
-from .files_selector import get_dirs_week_period
+from .files_selector import get_dirs_week_period, get_period_boundaries
 from .sort_click_data_files import get_sorted_paths
 
 
@@ -36,12 +36,35 @@ def update_statistics_csv(statistics_file: str, metrics_file: str, output_csv: s
 
     fields = ['Data', 'CTR1', 'CTR10', 'CTR100', 'Non-Click', 'MRR10', 'NDCG10']
 
-    with open(output_csv, 'a', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=fields)
-        writer.writerow(statistics)
+    update_csv_row(output_csv, statistics, fields)
 
     backup_file = output_csv.replace('.csv', f'_backup_{get_previous_month_last_day()}.csv')
     shutil.copyfile(output_csv, backup_file)
+
+
+def update_csv_row(csv_path, new_row, header):
+    rows = []
+    found = False
+
+    if os.path.exists(csv_path):
+        with open(csv_path, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row['Data'] == new_row['Data']:
+                    rows.append(new_row)   # replace by new row
+                    found = True
+                else:
+                    rows.append(row)
+
+    if not found:
+        rows.append(new_row)
+
+    # rewrite whole csv, here csv is list of rows, so we
+    # can't use method "write_statistics(statistics: dict, output_file: str, fields: list)"
+    with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=header)
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def get_previous_month():
@@ -91,7 +114,8 @@ if __name__ == "__main__":
 
     input_click_path_base = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\prod"
     day = datetime.datetime.today()
-    dirs = get_dirs_week_period(day, input_click_path_base)
+    period_end, period_start = get_period_boundaries(day)
+    dirs = get_dirs_week_period(period_end, period_start, input_click_path_base)
     click_data_files = get_sorted_paths(dirs)
 
     output_path = r"d:\content-team\click-data\Work\0\events"
@@ -120,7 +144,7 @@ if __name__ == "__main__":
     update_statistics_csv(statistics_file,
                           metrics_file,
                           output_csv=output_csv,
-                          processing_data=day.strftime("%Y-%m-%d"))
+                          processing_data=period_end.strftime("%Y-%m-%d"))
 
     target_path = r"c:\agent\data\metrics_report.csv"
     shutil.copyfile(output_csv, target_path)
