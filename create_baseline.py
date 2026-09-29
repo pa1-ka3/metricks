@@ -41,6 +41,11 @@ class BaseConfig:
     class OutputPaths:
         baseline_folder: str
 
+    class Tests:
+        dll: str
+        runsettings: str
+        filter: str
+
 
 class ConfigDenver(BaseConfig):
     log_file = r"d:\content-team\click-data\Work\Log\create_baseline_metrics_test.log"
@@ -66,6 +71,11 @@ class ConfigDenver(BaseConfig):
         #baseline_folder = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\search-metrics-test\dataset"
         baseline_folder = r"d:\content-team\click-data\Work\4"
 
+    class Tests:
+        dll = r"d:\gf-goldfire.test.art\src\GoldfireAPITest\bin\Debug\netcoreapp3.1\GoldfireAPITest.dll"
+        runsettings = r"d:\gf-goldfire.test.art\src\GoldfireAPITest\TestSettingsFiles\QueryStatisticMetrikTests.stage.runsettings"
+        filter = "ResearcherQueryStatisticTests"
+
 
 class ConfigDev(BaseConfig):
     log_file = r"c:\Data\ClickData_results\create_baseline_metrics_test.log"
@@ -89,6 +99,11 @@ class ConfigDev(BaseConfig):
 
     class OutputPaths:
         baseline_folder = r"c:\Data\ClickData_results\baseline"
+
+    class Tests:
+        dll = r"d:\gf-goldfire.test.art\src\GoldfireAPITest\bin\Debug\netcoreapp3.1\GoldfireAPITest.dll"
+        runsettings = r"d:\gf-goldfire.test.art\src\GoldfireAPITest\TestSettingsFiles\QueryStatisticMetrikTests.stage.runsettings"
+        filter = "ResearcherQueryStatisticTests"
 
 
 def write_info(msg, log_file):
@@ -161,50 +176,34 @@ def main():
     prepare_queries_file(config, last_adataset, period_from, period_to)
 
     # 02 - run queries in ART test environment
-    executed_qta, executed_researcher, executed_researcher_bf = execute_tests(config,
-                                                                              period_from,
-                                                                              period_to,
-                                                                              run_date)
+    executed_researcher = execute_tests(config)
 
     # 03 - combine results
-    baseline_qta, baseline_researcher, baseline_researcher_bf = get_combined_results(config, executed_qta,
-                                                                                     executed_researcher,
-                                                                                     executed_researcher_bf,
-                                                                                     last_adataset, period_from,
-                                                                                     period_to, run_date)
+    baseline_researcher = get_combined_results(config,
+                                               executed_researcher,
+                                               last_adataset,
+                                               period_from,
+                                               period_to,
+                                               run_date)
 
-    # 04 - create baseline
-    result = create_html(baseline_qta,
-                         baseline_researcher,
-                         baseline_researcher_bf,
-                         config,
-                         last_adataset,
-                         period_from,
-                         period_to,
-                         run_date)
+    # 04 - create metrics result
+    result = create_metrics(baseline_researcher,
+                            config,
+                            last_adataset,
+                            period_from,
+                            period_to,
+                            run_date)
 
-    # 05 - insert baseline to elasticsearch
-    '''
-    os.chdir(config.Scripts.scripts_folder)
-    run_date_time = datetime.datetime.strptime(run_date, run_date_format).strftime("%Y-%m-%d.%H:%M:%S")
-    script_insert_baseline_to_elk = os.path.join(config.Scripts.scripts_folder, "baseline_to_es5.py")
-    for source_type in ["dataset", "researcher", "qta", "researcherbf"]:
-        json_file = os.path.join(config.OutputPaths.baseline_folder, f"{source_type}.{period_from}.{period_to}.{run_date}.json")
-        run_subprocess([config.Scripts.python2, script_insert_baseline_to_elk, json_file, source_type, period_from, period_to, run_date_time], config.log_file)
-    '''
     write_info("end", config.log_file)
     return result
 
 
-def create_html(baseline_qta, baseline_researcher, baseline_researcher_bf, config, last_adataset, period_from,
-                period_to, run_date):
-    script_create_baseline_html = os.path.join(config.Scripts.scripts_folder,
-                                               "create_baseline_html.py")
+def create_metrics(baseline_researcher, config, last_adataset, period_from,
+                   period_to, run_date):
+
     baseline_types = {
         "researcher": baseline_researcher,
-        "qta": baseline_qta,
-        "dataset": last_adataset + ".bz2" #,
-        #"researcherbf": baseline_researcher_bf
+        "dataset": last_adataset + ".bz2" 
     }
     results = {}
     for name, path in baseline_types.items():
@@ -213,57 +212,42 @@ def create_html(baseline_qta, baseline_researcher, baseline_researcher_bf, confi
         out_html = os.path.join(config.OutputPaths.baseline_folder,
                                 f"{name}.{period_from}.{period_to}.{run_date}")
         results[name] = calculate_metrics(path, out_html)
-        #run_subprocess([config.Scripts.python3, script_create_baseline_html, path, out_html],
-        #               config.log_file)
+
     return results
 
 
-def get_combined_results(config, executed_qta, executed_researcher, executed_researcher_bf, last_adataset, period_from,
+def get_combined_results(config, executed_researcher, last_adataset, period_from,
                          period_to, run_date):
     baseline_researcher = os.path.join(config.WorkFolders.out_baseline_folder_3,
                                        f"baseline.researcher.{period_from}.{period_to}.{run_date}.jsonl.bz2")
-    baseline_qta = os.path.join(config.WorkFolders.out_baseline_folder_3,
-                                f"baseline.qta.{period_from}.{period_to}.{run_date}.jsonl.bz2")
-    baseline_researcher_bf = os.path.join(config.WorkFolders.out_baseline_folder_3,
-                                          f"baseline.researcherbf.{period_from}.{period_to}.{run_date}.jsonl.bz2")
-    script_get_documents = os.path.join(config.Scripts.scripts_folder, "get_documents.py")
+
     combine_types = {
-        executed_researcher: baseline_researcher,
-        executed_qta: baseline_qta #,
-        # executed_researcher_bf: baseline_researcher_bf
+        executed_researcher: baseline_researcher
     }
     for src, dst in combine_types.items():
         get_combined_documents(last_adataset, src, dst)
-    write_info(f"(out files '{baseline_researcher}' and '{baseline_qta}')",
+    write_info(f"(out files '{baseline_researcher}' )",
                config.log_file)
 
-    return baseline_qta, baseline_researcher, baseline_researcher_bf
+    return baseline_researcher
 
 
-def execute_tests(config, period_from, period_to, run_date):
+def execute_tests(config):
 
-    executed_qta = os.path.join(config.WorkFolders.out_tests_folder_2, "qta.out.jsonl")
     executed_researcher = os.path.join(config.WorkFolders.out_tests_folder_2, "researcher.out.jsonl")
-    executed_researcher_bf = os.path.join(config.WorkFolders.out_tests_folder_2, "researcherbf.out.jsonl")
 
     if not config.Scripts.skipRunTests:
-        # Clean up work folders
-        '''
-        for folder in [config.WorkFolders.run_query_folder, config.WorkFolders.run_query_folder_bf]:
-            if os.path.exists(folder):
-                shutil.rmtree(folder)
-            os.makedirs(folder, exist_ok=True)
-        '''
         # Run tests
         EnsureDir(executed_researcher)
-        run_subprocess([os.path.join(config.WorkFolders.run_query_folder, "run-QueryStatisticTests.bat")],
-                       config.log_file)
-        # run_subprocess([os.path.join(config.WorkFolders.run_query_folder_bf, "run-QueryStatisticTests.bat")],
-        #               config.log_file)
+        run_subprocess([
+            "dotnet", "test", config.Tests.dll,
+            "--settings", config.Tests.runsettings,
+            "--filter", f'TestCategory={config.Tests.filter}',
+        ], config.log_file)
 
-    write_info(f"(out files '{executed_researcher}', '{executed_qta}', '{executed_researcher_bf}')",
+    write_info(f"(out files '{executed_researcher}' )",
                config.log_file)
-    return executed_qta, executed_researcher, executed_researcher_bf
+    return executed_researcher
 
 
 def prepare_queries_file(config, last_adataset, period_from, period_to):
