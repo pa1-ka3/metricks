@@ -40,5 +40,5 @@ Update parameters in run_analyzer.bat and place it into click-data
 ## 3. Run analysis
 
  In cmd launch run_analyzer.bat
-`(venv) D:\content-team\click-data>run_analyzer.bat >out.txt 2>err.txt`
+`(venv) D:\content-team\click-data>run_statistics_colector.bat >out.txt 2>err.txt`
 
