@@ -47,65 +47,6 @@ class BaseConfig:
         filter: str
 
 
-class ConfigDenver(BaseConfig):
-    log_file = r"d:\content-team\click-data\Work\Log\create_baseline_metrics_test.log"
-
-    class Scripts:
-        python2 = r"c:\Python27\python.exe"
-        python3 = r"c:\Users\svc_goldfire_stage\AppData\Local\Programs\Python\Python312\python.exe"
-        scripts_folder = r"d:\content-team\update-automation-2\Click-Data-Elastic-7"
-        skipRunTests = False
-
-    class WorkFolders:
-        run_query_folder = r"d:\gf-goldfire.test.art.runner_metrik1"
-        run_query_folder_bf = r"d:\gf-goldfire.test.art.runner.bf_metrik1"
-        out_queries_folder_1 = r"d:\content-team\click-data\Work\1"
-        out_tests_folder_2 = r"d:\content-team\click-data\Work\2"
-        out_baseline_folder_3 = r"d:\content-team\click-data\Work\3"
-
-    class InputPaths:
-        in_adataset_folder = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\search-quality\popular-docs"
-        filter_adataset = "adataset.*.*.json"
-
-    class OutputPaths:
-        #baseline_folder = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\search-metrics-test\dataset"
-        baseline_folder = r"d:\content-team\click-data\Work\4"
-
-    class Tests:
-        dll = r"d:\gf-goldfire.test.art\src\GoldfireAPITest\bin\Debug\netcoreapp3.1\GoldfireAPITest.dll"
-        runsettings = r"d:\gf-goldfire.test.art\src\GoldfireAPITest\TestSettingsFiles\QueryStatisticMetrikTests.stage.runsettings"
-        filter = "ResearcherQueryStatisticTests"
-
-
-class ConfigDev(BaseConfig):
-    log_file = r"c:\Data\ClickData_results\create_baseline_metrics_test.log"
-
-    class Scripts:
-        python2 = r"c:\Python27\python.exe"
-        python3 = r"c:\Projects\Content.Scripts\patents_clickdata\gf-content.scripts.patent\gfrscripts\click-data\venv\Scripts\python.exe"
-        scripts_folder = r"C:\Projects\Content.Scripts\patents_clickdata\gf-content.scripts.patent\gfrscripts\click-data\click_analyzer\MRR_EWB"
-        skipRunTests = True
-
-    class WorkFolders:
-        run_query_folder = r"d:\gf-goldfire.test.art.runner_metrik1\search-quality"
-        run_query_folder_bf = r"d:\gf-goldfire.test.art.runner.bf\search-quality"
-        out_queries_folder_1 = r"c:\Data\ClickData_work\1"
-        out_tests_folder_2 = r"c:\Data\ClickData_work\2"
-        out_baseline_folder_3 = r"c:\Data\ClickData_work\3"
-
-    class InputPaths:
-        in_adataset_folder = r"c:\Data\ClickData_work\popular-docs"
-        filter_adataset = "adataset.*.*.json"
-
-    class OutputPaths:
-        baseline_folder = r"c:\Data\ClickData_results\baseline"
-
-    class Tests:
-        dll = r"d:\gf-goldfire.test.art\src\GoldfireAPITest\bin\Debug\netcoreapp3.1\GoldfireAPITest.dll"
-        runsettings = r"d:\gf-goldfire.test.art\src\GoldfireAPITest\TestSettingsFiles\QueryStatisticMetrikTests.stage.runsettings"
-        filter = "ResearcherQueryStatisticTests"
-
-
 def write_info(msg, log_file):
     message = f"[{datetime.datetime.now():%Y-%m-%d %H:%M:%S}] {msg}"
     print(message)
@@ -122,25 +63,6 @@ def copy_result(src, dst, log_file):
         # send_email(message)
         sys.exit(1)
 
-
-def send_email(message):
-    # Adjust SMTP settings as needed
-    smtp_server = "vwc-2igdfap46.ihsglobal.local"
-    from_addr = "goldfire.diagnostics@accuris.tech"
-    to_addr = ["alexander.korsuk@accuristech.com"]
-    subject = message
-    body = message
-
-    msg = MIMEText(body, "html", "utf-8")
-    msg["Subject"] = subject
-    msg["From"] = from_addr
-    msg["To"] = ", ".join(to_addr)
-
-    try:
-        with smtplib.SMTP(smtp_server) as server:
-            server.sendmail(from_addr, to_addr, msg.as_string())
-    except Exception as e:
-        print(f"Failed to send email: {e}")
 
 
 def run_subprocess(args, log_file):

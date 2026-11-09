@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
     clean_work_folders()
 
-    input_click_path_base = r"\\fsxnetapp01.ihsglobal.local\goldfire-arch-prod\ewb-click-data\prod"
+    input_click_path_base = r"\\fsxnetapp01\ewb-click-data\prod"
     day = datetime.datetime.today()
     period_start, period_end = get_period_boundaries(day)
     dirs = get_dirs_week_period(period_start, period_end, input_click_path_base)

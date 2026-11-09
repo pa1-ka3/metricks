@@ -1,13 +1,7 @@
 import os
 from collections import defaultdict
 from nltk.corpus import stopwords
-
-
-def EnsureDir(f):
-    d = os.path.dirname(f)
-    if not os.path.exists(d):
-        os.makedirs(d)
-# end of EnsureDir
+from .create_baseline import EnsureDir
 
 
 def get_normalized_query(query, stop_words):
